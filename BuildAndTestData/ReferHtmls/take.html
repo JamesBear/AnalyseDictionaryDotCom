@@ -1,0 +1,2532 @@
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:fb="http://ogp.me/ns/fb#" xmlns:og="http://opengraphprotocol.org/schema/" >
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+<script type="text/javascript">
+UrlHelper = function() {
+var COOKIE_DOMAIN_THESAURUS = '.thesaurus.com';
+var COOKIE_DOMAIN_DICTIONARY = '.dictionary.com';
+var COOKIE_DOMAIN_REFERENCE = '.reference.com';
+var domain = null;
+var currentURL = null;
+var spanidsUrl = null;
+function getSpanidsUrl(bid, sid, currentDomain) {
+var url = 'http://';
+var source = '';
+if(currentDomain == COOKIE_DOMAIN_DICTIONARY) {
+url += 'spanids.reference.com/?';
+source = 'd';
+} else if (currentDomain == COOKIE_DOMAIN_REFERENCE){
+url += 'spanids.dictionary.com/?';
+source = 'r';
+} else {
+url += 'spanids.dictionary.com/?';
+source = 't';
+}
+url += 'bid=' + bid + '&asid=' + sid + '&bidnew=1&asidnew=1&source=' + source + '&site=app';
+return url;
+}
+function getCurrentDomain() {
+var host = window.location.host;
+var value = "";
+if(host.indexOf(COOKIE_DOMAIN_THESAURUS) > -1) {
+value = COOKIE_DOMAIN_THESAURUS;
+} else if(host.indexOf(COOKIE_DOMAIN_DICTIONARY) > -1) {
+value = COOKIE_DOMAIN_DICTIONARY;
+} else if(host.indexOf(COOKIE_DOMAIN_REFERENCE) > -1){
+value = COOKIE_DOMAIN_REFERENCE;
+}
+return value;
+}
+return {
+getCurrentDomain : function() {
+if(domain === null) {
+domain = getCurrentDomain();
+}
+return domain;
+},
+getCurrentUrl : function() {
+if(currentURL === null) {
+currentURL = window.location.protocol + "//" + window.location.host + "" + window.location.pathname;
+}
+return currentURL;
+},
+getSpanidsUrl : function(bid, sid, domain) {
+if(spanidsUrl === null) {
+spanidsUrl = getSpanidsUrl(bid, sid, domain);
+}
+return spanidsUrl;
+}
+}
+}();
+cookiesManager = function (){
+return {
+getCookieValue : function(name) {
+var value = null;
+var cookies = document.cookie;
+var searchedCookie = cookies.indexOf(" " + name + "=");
+// it's worth to check, if cookie is not first cookie
+if(searchedCookie == -1) {
+var checkFirstCookie = cookies.indexOf(name + "=");
+searchedCookie = checkFirstCookie == 0 ? 0 : -1;
+}
+if(searchedCookie > -1) {
+var startPositionOfValue = cookies.indexOf("=", searchedCookie) + 1;
+var endPositionOfValue = cookies.indexOf(";", searchedCookie);
+if(endPositionOfValue == -1) {
+endPositionOfValue = searchedCookie.length;
+}
+value = cookies.substring(startPositionOfValue,endPositionOfValue);
+}
+return value;
+},
+setCookie: function(name, value, hours) {
+var now = new Date();
+var time = now.getTime();
+time += (3600 * hours) * 1000;
+now.setTime(time);
+document.cookie =
+name + '=' + value +
+';expires=' + now.toGMTString() +
+';path=/' +
+';domain=' + UrlHelper.getCurrentDomain();
+}
+}
+}();
+var BidSidGenerator = function (){
+var COOKIE_NAME_BID = 'bid';
+var COOKIE_NAME_SID = 'sid';
+var newBidCookie = false;
+var newSidCookie = false;
+var bidCookieValue = null;
+var sidCookieValue = null;
+// generates value of bid cookie
+function countCookieValue() {
+var max = 999999;
+var min = 100000;
+var rand = Math.floor(Math.random() * (max - min)) + min;
+var time = new Date().getTime();
+return rand + "-" + time;
+}
+return {
+init:function() {
+bidCookieValue = cookiesManager.getCookieValue(COOKIE_NAME_BID);
+sidCookieValue = cookiesManager.getCookieValue(COOKIE_NAME_SID);
+if(bidCookieValue == null || bidCookieValue.length == 0) {
+var hour = 24 * (365*2); // cookie is set for 2 years
+bidCookieValue = countCookieValue();
+cookiesManager.setCookie(COOKIE_NAME_BID, bidCookieValue, hour);
+newBidCookie = true;
+}
+if(sidCookieValue == null || sidCookieValue.length == 0) {
+sidCookieValue = countCookieValue();
+newSidCookie = true
+}
+var hour = 0.5; // cookie is set for 0.5 hour
+cookiesManager.setCookie(COOKIE_NAME_SID, sidCookieValue, hour);
+},
+propagateCookies : function(){
+if(newBidCookie || newSidCookie) {
+var url = UrlHelper.getSpanidsUrl(bidCookieValue, sidCookieValue, UrlHelper.getCurrentDomain());
+var iframe = '<iframe id="spanids" style="width:1px;height:1px;margin-left:-10000;border:none;" src="' + url + '"></iframe>';
+document.write(iframe);
+}
+}
+}
+}();
+BidSidGenerator.init();
+BidSidGenerator.propagateCookies();
+</script>
+<script type="text/javascript">
+UserController = function() {
+var USER_STATUS_LOGGED_IN = 'L';
+var USER_STATUS_NOT_LOGGED = 'N';
+var COOKIE_NAME_SESS = 'sess';
+var COOKIE_NAME_FAV = 'fav';
+var PREMIUM_STATUS_VALUE = 9;
+var FAV_COOKIE_PREMIUM_STATUS_KEY = 0;
+var FAV_COOKIE_FAV_COUNT_KEY = 1;
+var isLoggedIn = null;
+var isPremium = null;
+var favNumber = null;
+function checkIsUserLoggedIn() {
+var userStatus = USER_STATUS_NOT_LOGGED;
+var sessCookieValue = cookiesManager.getCookieValue(COOKIE_NAME_SESS);
+if(sessCookieValue != null) {
+userStatus = sessCookieValue.charAt(0);
+}
+return userStatus == USER_STATUS_LOGGED_IN ? true : false;
+}
+function checkIfUserIsPremium() {
+var premiumStatus = null;
+var favCookieValue = cookiesManager.getCookieValue(COOKIE_NAME_FAV);
+if(favCookieValue != null) {
+favCookieValue = decodeURIComponent(favCookieValue);
+premiumStatus = favCookieValue.split('|')[FAV_COOKIE_PREMIUM_STATUS_KEY];
+}
+return premiumStatus == PREMIUM_STATUS_VALUE ? true : false;
+}
+function getFavNum() {
+var count = 0;
+var favCookieValue = cookiesManager.getCookieValue(COOKIE_NAME_FAV);
+if(favCookieValue != null) {
+favCookieValue = decodeURIComponent(favCookieValue);
+count = favCookieValue.split('|')[FAV_COOKIE_FAV_COUNT_KEY];
+}
+return count;
+}
+return {
+isLoggedIn : function() {
+if(isLoggedIn === null) {
+isLoggedIn = checkIsUserLoggedIn();
+}
+return isLoggedIn;
+},
+isPremium : function() {
+if(isPremium === null) {
+isPremium = checkIfUserIsPremium();
+}
+return isPremium
+},
+getFavNumber : function() {
+if(favNumber === null) {
+favNumber = getFavNum();
+}
+return favNumber;
+}
+}
+}();
+var mweb=location.search.match(new RegExp("[\?\&]m=([^\&]*)(\&?)","i"));
+if(mweb!=null && mweb[1]){
+if(mweb[1]=="www" || mweb[1]=="www"){
+var now = new Date();
+var time = now.getTime();
+time+= 3600 * 1000;
+now.setTime(time);
+cookiesManager.setCookie("mw","y", now.toGMTString());
+}
+}
+</script>
+<script type="text/javascript">
+var eventName="";
+var qs=location.search.match(new RegExp("[\?\&]s=([^\&]*)(\&?)","i"));
+if(qs!=null && qs[1]){
+if(qs[1]=="t" || qs[1]=="ts"){
+eventName="c&linkid=59wn52";
+}else if(qs[1]=="b" || qs[1]=="bs"){
+eventName="c&linkid=hz0x7d";
+}
+}
+(new Image()).src = "http://track.reference.com/webtrack.gif?st=dict&pn=dic&ab=260:1&ldid=0&qr=take&ev=ps"+eventName+"&cb="+Math.floor((Math.random()*899999999)+100000000)+"&ak=1&rf="+encodeURIComponent(document.referrer);
+</script>
+<META HTTP-EQUIV="imagetoolbar" CONTENT="no">
+<meta name="msvalidate.01" content="DF5542D7723770377E9ABFF59AC1DC97" />
+<link rel="search" type="application/opensearchdescription+xml" href="http://dictionary.reference.com/opensearch_desc.xml" title="Dictionary.com" />
+<link rel="shortcut icon" href="http://static.sfdict.com/en/i/dictionary/newserp/favicon.ico" />
+<title>
+Take | Define Take at Dictionary.com
+</title>
+<!-- Add the following three tags inside head. -->
+<meta property="og:image" content="http://static.sfdict.com/sh/i/dict/social_logo.jpg" />
+<meta name="description" content="Take definition, to get into one's hold or possession by voluntary action: to take a cigarette out of a box; to take a pen and begin to write. See more."/>
+<meta name="keywords" content="take, online dictionary, English dictionary, take definition, define take, definition of take, take pronunciation, take meaning, take origin, take examples"/>
+<meta property="og:title" content="the definition of take"/>
+<meta property="og:site_name" content="Dictionary.com"/>
+<meta property="og:image" content="http://static.sfdict.com/sh/i/dict/social_logo.jpg"/>
+<meta property="fb:app_id" content= "127444090629600"/>
+<meta property="fb:admins" content="100000304287730,109125464873" />
+<link rel="canonical" href="http://dictionary.reference.com/browse/take"/>
+<link rel="stylesheet" href="http://dictionary.reference.com/dcss/dictionary/v5/newSerpStylesTopHeavy.r91724.css" type="text/css">
+<script type="text/javascript">
+showads=true;
+if(typeof(UserController)!="undefined"){ showads =(UserController.isPremium() && UserController.isLoggedIn())? false: true; }
+hashtable = {};
+hashtable['pagevariables']=["false","","false","","","dynamo.dictionary.com","","true",false,"reference.com","","","false","false","false","","false","dictionary.reference.com","false","dictionary","ask.reference.com","true","dicSerpRedesign2","false","false","dic","app.dictionary.com","app.dictionary.com/login/core","http://static.sfdict.com/en/i/dictionary/newserp/quiz_close.png","http://static.sfdict.com/en/i/dictionary/newserp/cw_out.png","true","true","","false","take","dic","false","false",false,"false","false","false","dic","true","false","true"];
+dictionaryConsolidatedCookieList=new Array('dTlb','fC','rh','translangpair','regHP','dyn','freqcp','adblk');dictionaryConsolidatedCookieName='dcc';var elapsedAdRefrshTime = parseInt(10);
+var isResponsiveDesign ="false";var rsSpellSuggest ='false'; var width=screen.width;if(width >=1240){isResponsiveDesign= "true"; };
+if(showads===true){
+(function(G,o,O,g,L,e){G[g]=G[g]||function(){(G[g]['q']=G[g]['q']||[]).push(
+arguments)},G[g]['t']=1*new Date;L=o.createElement(O),e=o.getElementsByTagName(
+O)[0];L.async=1;L.src='//www.google.com/adsense/search/async-ads.js';
+e.parentNode.insertBefore(L,e)})(window,document,'script','_googCsa');
+var page_load_start = new Date();
+}
+_enableOptimizedHotword = true;
+</script>
+<script type="text/javascript">
+var _daisyClickTrackingEnabled = 'true';
+var _daisyClickTrackingStatus = 'on';
+// Daisy Click Event Object
+var DaisyInfo = window.DaisyInfo || {};
+DaisyInfo.clickURL = "click.reference.com";
+DaisyInfo.pickObjConversion = function(po) { return ""+h(po.lk)+"?clksite=dict&clkpage=dic&clkld=260:1&clkorgn=0&clkord="+h(po.io)+"&clkmod="+h(po.m)+"&clkitem="+enc(h(po.pt))+"&clkdest="+h(po.u);};
+DaisyInfo.nonRedirectPickObjConversion = function(po) { return "?site=dict&pageName=dic&ldid=260:1&module="+h(po.m)+"&linkIds="+h(po.lk);};
+</script>
+<script type="text/javascript">
+var _limitedDeployID = "";
+pageVal = {};
+pageVal['pagekey']=["daisyPK","http://dictionary.reference.com","take","web","dic","browse",false,false,"http://static.sfdict.com/en/i/dictionary/shared6.png","dicColor","dictionary.reference.com","thesaurus.reference.com","www.reference.com","translate.reference.com"];
+</script>
+<script src="http://dictionary.reference.com/inc/js/dictionary/v4/dicSerpV5_c.r91834.js" type="text/javascript"></script>
+<script type="text/javascript">if(typeof($.noConflict) == 'function'){$.noConflict();}var $j=jQuery;</script>
+<script type="text/javascript">
+window.page_start_offset = new Date().getTime();
+window.DCOM_LD = "0";
+_gslElapseArr=[];
+_gslElapseArr.push(window.page_start_offset);
+</script>
+<!--dic_dic_browse_short-->
+<script type='text/javascript' src='http://c.amazon-adsystem.com/aax2/amzn_ads.js'></script>
+<script type="text/javascript">try {amznads.getAds('3067');} catch(e) { /*ignore*/ }</script>
+<script type="text/javascript">
+if(showads){
+var adtest=location.search.match(new RegExp("[\?\&]adtest=([^\&]*)(\&?)","i"));
+var ld="2601";
+if(typeof(cookiesManager)!="undefined" && cookiesManager.getCookieValue("mseg")!=null){
+if(parseInt(cookiesManager.getCookieValue("mseg")) >= 80 && parseInt(cookiesManager.getCookieValue("mseg")) <= parseInt(84)){
+ld="2607";
+}
+}
+sratest=true;
+var asyncrender=true;
+var gptadslots =[];
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+_sraAdStart=[];
+_sraAdEnd=[];
+(function() {
+var gads = document.createElement("script");
+gads.async = true;
+gads.type = "text/javascript";
+var useSSL = "https:" == document.location.protocol;
+gads.src = (useSSL ? "https:" : "http:") + "//www.googletagservices.com/tag/js/gpt.js";
+var node =document.getElementsByTagName("script")[0];
+node.parentNode.insertBefore(gads, node);
+})();
+try {
+amznads.setTargetingForGPTAsync('yip4');
+} catch(e) { /*ignore*/}
+googletag.cmd.push(function() {
+gptadslots[1] = googletag.defineSlot('/23219321/iac.dict.dictry.dw/results/serp_short/content',[[728,90],[970,90]],'ad_top_728x90_0').addService(googletag.pubads()).setTargeting('pos2','728x90_1').setTargeting('tx2','serp_short').setTargeting('tx1','results').setTargeting('ptype','content').setTargeting('pos','top');gptadslots[2] = googletag.defineSlot('/23219321/iac.dict.dictry.dw/results/serp_short/content',[[300,250],[300,600]],'ad_top_300x250_1').addService(googletag.pubads()).setTargeting('pos2','300x250_1').setTargeting('tx2','serp_short').setTargeting('tx1','results').setTargeting('ptype','content').setTargeting('pos','top');gptadslots[3] = googletag.defineSlot('/23219321/iac.dict.dictry.dw/results/serp_short/content',[160,600],'ad_top_160x600').addService(googletag.pubads()).setTargeting('pos2','160x600_1').setTargeting('tx2','serp_short').setTargeting('tx1','results').setTargeting('ptype','content').setTargeting('pos','mid');gptadslots[4] = googletag.defineSlot('/23219321/iac.dict.dictry.dw/results/serp_short/content',[[300,250]],'ad_bottom_300x249').addService(googletag.pubads()).setTargeting('pos2','300x250_2').setTargeting('tx2','serp_short').setTargeting('tx1','results').setTargeting('ptype','content').setTargeting('pos','mid');gptadslots[5] = googletag.defineSlot('/23219321/iac.dict.dictry.dw/results/serp_short/content',[[300,250]],'stickyrail_ad').addService(googletag.pubads()).setTargeting('pos2','300x250_3').setTargeting('tx2','serp').setTargeting('tx1','results').setTargeting('ptype','content').setTargeting('pos','mid');
+/*ADD PAGE LEVEL TARGETTING VALUES FOR DISPLAY ADS*/
+googletag.pubads().setTargeting("kw","take").setTargeting("loc","US").setTargeting("ld",ld);
+googletag.pubads().setTargeting("ref", "direct").setTargeting("lang","en").setTargeting("rpv", Math.floor((Math.random()*100)+1).toString()).setTargeting("dc_ref", encodeURIComponent(window.location));
+if(typeof(kruxenabled)!='undefined'){
+googletag.pubads().setTargeting("ksg",Krux.segments);
+googletag.pubads().setTargeting("kuid",Krux.user);
+googletag.pubads().setTargeting("khost",encodeURIComponent(location.hostname));
+}
+if(adtest!=null && adtest[1]!=""){
+googletag.pubads().setTargeting("adtest",adtest[1]);
+}
+googletag.pubads().enableSingleRequest();
+googletag.pubads().enableAsyncRendering();
+googletag.enableServices();
+});
+}
+</script>
+<script>
+if(typeof(UserController)!="undefined"){
+if(UserController.isPremium() && UserController.isLoggedIn()){
+$j(document).ready(function() {
+$j("div[id^=ad_]").css("display","none");
+$j("#adcontainer1").css("display","none");
+});
+}
+}
+</script>
+<script type="text/javascript">
+var _gaq = _gaq || [];
+_gaq.push(['_setAccount', 'UA-4036279-9']);
+_gaq.push(['_setDomainName','.reference.com']);
+_gaq.push(['_setAllowHash',false]);
+_gaq.push(['_setAllowLinker',true]);
+_gaq.push(['_setCustomVar',1,'LD','260:1',2]);
+_gaq.push(['_setSiteSpeedSampleRate', 100]);
+if(false){
+var pageviewURL = "/error?page=" + document.location.pathname + document.location.search + "&from=" + document.referrer
+_gaq.push(['_trackPageview', pageviewURL.toString()]);
+}else
+_gaq.push(['_trackPageview']);
+if(true){
+if(false){
+_gaq.push(['_trackEvent','midSerpAd','triggered']);
+}else {
+_gaq.push(['_trackEvent','midSerpAd','not triggered']);
+}
+}
+_gaq.push(['_trackEvent','page loaded','260:1']);
+(function() {
+var ga = document.createElement('script');
+ga.type = 'text/javascript'; ga.async = true;
+ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com'+ '/ga.js';
+var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script>
+<body id="promo_serpTo" class="dic_serpto" onload="initpage();">
+<style type="text/css"> #contouter{top: 0px;}</style>
+<div id="popup">
+<div id="pfav"></div>
+<div class="pS">Added to <a id="favLink1" href="http://app.dictionary.com/favorites">Favorites</a></div>
+</div>
+<div id="wrpT">
+<div id="wrapper"><div id="contnr">
+<div id="hlinT">
+<span class="devider"></span> <a class="sel" href="http://dictionary.reference.com/browse/take" onmousedown="ask.dict.updateQuery(this,true);daisyTabPK(this,{lk:'tqks0v',io:'0',m:'dtab'})" id="dicttab">Dictionary</a><span class="devider"></span>
+<a href="http://thesaurus.com/browse/take" onmousedown="ask.dict.updateQuery(this,true);daisyTabPK(this,{lk:'qxnxzj',io:'0',m:'ttab'})" id="thestab">Thesaurus</a><span class="devider"></span>
+<a href="http://dynamo.dictionary.com" onmousedown="ask.dict.updateQuery(this,true);daisyTabPK(this,{lk:'ihzyvr',io:'0',m:'dytab'})" id="dynamotab">Word Dynamo</a><span class="devider"></span>
+<a href="http://quotes.dictionary.com/" onmousedown="ask.dict.updateQuery(this,true);daisyTabPK(this,{lk:'wtcrk4',io:'0',m:'qtab'})" id="quotestab">Quotes</a><span class="devider"></span>
+<a href="http://www.reference.com/browse/take" onmousedown="ask.dict.updateQuery(this,true);daisyTabPK(this,{lk:'rn6y6h',io:'0',m:'rtab'})" id="reftab">Reference</a><span class="devider"></span>
+<a href="http://translate.reference.com/translate?query=take" onmousedown="ask.dict.updateQuery(this,true);daisyTabPK(this,{lk:'s6ljc3',io:'0',m:'trtab'})" id="transtab">Translator</a><span class="devider"></span>
+<a href="http://spanish.dictionary.com/" onmousedown="ask.dict.updateQuery(this,true);daisyTabPK(this,{lk:'kun0fl',io:'0',m:'sptab'})" style="border:none" id="spanishtab">Spanish</a><span class="devider"></span>
+</div>
+<div id="tpnvT">
+<a id="loginHeaderLink" style="padding-right:0px;" rel="nofollow" href="http://app.dictionary.com/login/core?source=header_dict&logindest=">Log In</a>
+<span class="bar bar1" style="height: 13px;display: inline-block;position: relative;border-left: 1px solid white;left:1px;top:2px;"></span>
+<a id="regLink" rel="nofollow" href="http://app.dictionary.com/signup/core?source=header_dict&logindest=">Sign Up</a>
+<span class="bar bar2" style="height: 13px;display: inline-block;position: relative;border-left: 1px solid white;top:2px;"></span><span class="prmsblT prmsblTn"></span><a onmousedown="return pk(this,{io:0,m:'hrdprem',ec:1,lk:'bz0r8y'})" href="http://app.dictionary.com/signup/premium?logindest=http%3A%2F%2Fdictionary.reference.com%2Fbrowse%2Ftake">Premium </a>
+</div>
+</div>
+</div>
+<div id="hdrT">
+<div id="wraplogoform">
+<div id="logoimg">
+<a href="http://dictionary.reference.com" class="diclogo" onmousedown="return pk(this,{lk:'yg487x',io:'0',m:'dkscr'})"><div class="dlogo" title="Dictionary.com"></div></a>
+</div>
+<div id="logoform">
+<form action="/dic" onsubmit="return formcheck();">
+<div class="area-holderT">
+<input size="40" value="take" id="q" autoComplete="off" type="text" onkeypress="make_blank();" name="q" onclick="make_blank();" onFocus="javascript:this.select();"/>
+<button type="submit" value="" ></button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+<div id="contouter">
+<div id="flyout" style="display: none;">
+<div class="flyt" id="fyt" onmousedown="promourl();"><span class="txt">Introducing a cool<br/>new way to learn!</span><div class="gear"></div></div>
+</div>
+<div id="cwrp">
+<div id="snv">
+</div>
+<div id="de">
+<script type="text/javascript">
+var _todaysDate= "24 July, 2014";
+ask.dict.loggedIn=false;
+var hotwordSerpRD = false;
+ask.dict.isHotWordEnabled = true;
+hotwordSerpRD = true;
+ask.dict.hotWordImgURL = "";
+headerlinkUpdates();
+updatePremiumlink();
+var _sourcepg ="dic_browse";
+var _countryState = "JK_ID";
+var _translatemaxlength ="300";
+var _footerShown=false;
+var _impressionlogged = false;
+var pagekey = "dicSerpRedesign2";
+var takeOverEnabled = false;
+var ldtestId ="260:1";
+var csaAttr="260:1";
+var trackads="false";
+</script>
+<script type="text/javascript">
+var quantSegs ='';
+var _qevents = _qevents || [];
+document.getElementById('q').value="take";
+</script>
+<script type="text/javascript">
+isIE=false;
+isTlb = false;
+isToolbarInstalled(isIE,isTlb);
+</script>
+<center>
+<div id="dmain">
+
+
+<div id="results">
+<div id="diduno"></div>
+<div id="contentResults">
+<div id='ad_top_728x90_0' class='banner-ad ' >
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('ad_top_728x90_0'); });
+</script>
+</div>
+<div id="Headserp" class="Headserp">
+<span class="hdrrmn" style="float:left;">
+<span><h1 id="query_h1" class="query_h1">take</h1></span>
+<span id="aud" class="aud" title="Listen to the pronunciation of take"><span class="speaker" audio="http://static.sfdict.com/dictstatic/dictionary/audio/luna/T00/T0027200.mp3" default="http://dictionary.reference.com/audio.html/lunaWAV/T00/T0027200"><noscript><a onmousedown="spk(this,{lk:'nx1fkx',en:'wotdau',io:'0',b:'wotd',tp:'lrl',m:'wotdau'})" href="#"></a><a target="_blank" href="http://dictionary.reference.com/audio.html/lunaWAV/T00/T0027200"><img border="0" src="http://static.sfdict.com/dictstatic/g/d/speaker.gif"></a></noscript><a class="audspk" href="http://static.sfdict.com/dictstatic/dictionary/audio/luna/T00/T0027200.mp3"></a></span> </span>
+<span title="Add to Favorites">
+<span id="nonfav"></span>
+</span>
+<span id="fcimgh" class="fcimgh">
+<a class="examsent" href="http://www.reference.com/example-sentences/take" onmousedown="return pk(this,{lk:'5q219k',io:'0',m:'exsen14'});" target="_blank" title="See Example Sentences">Use <b>Take</b> in a sentence</a>
+</span>
+</span>
+<span class="hdrsc" style="float:left;">
+<span class="mdbt" onmouseover="enablemediabuttons()" style="display:none"></span>
+<span id="hdmd" class="hdmd">
+<span class="hdfb"></span>
+</span>
+</span>
+</div>
+<div id="midRail">
+<div id="rpane">
+
+<script type="text/javascript"> var _afcload='false';</script>
+<style type="text/css">#adcontainer1{min-height:108px;}</style>
+<style>
+.slDL{
+font-family: "Verdana";
+font-size: 12px;
+color: #404040;
+line-height:16px;
+}
+</style>
+<div id="adcontainer1"></div>
+<script type="text/javascript">
+var modulearray = new Array();
+modulearray['top']='gslT';modulearray['bot']='gslB';modulearray['mid']='gslM';modulearray['mid1']='gslM1';modulearray['mid2']='gslM2';modulearray['mid3']='gslM3';modulearray['default']='gslT';
+var _adcount =2;
+function getNumberofAds(numAdsmap){
+for(var name in numAdsmap){
+_adcount=numAdsmap[name];
+}
+$j('#adsreceived').append(_adcount);
+}
+function afcgslload(){
+if(typeof _gslElapseArr!='undefined'){
+_gslElapseArr.push(new Date().getTime()-window.page_start_offset);
+}
+}
+var pageOptions ={
+"pubId": "aj-lexico-dict-intl",
+"channel": "channel-01+LD1",
+"query": "take",
+"width": "472px",
+"adtest": "off",
+"hl": "en",
+"domainLinkAboveDescription": true,
+"rightHandAttribution": true,
+"attributionText":"Ads",
+'fontFamilyAttribution' : 'arial',
+"fontSizeAttribution":"9px",
+'numRepeated' :0,
+'clickableBackgrounds':true,
+'plusOnes':true,
+'sellerRatings' :true,
+'siteLinks' : true,
+'adPage' :1,
+'detailedAttribution' : false,
+'heightConstrained' : true,
+'colorAttribution' : '#666666',
+'adsResponseCallback':getNumberofAds
+};
+var adblock1= {
+"container": "adcontainer1",
+'verticalSpacing' : 2,
+'longerHeadlines' : false,
+"fontFamily": "verdana",
+"fontSizeTitle": 15,
+"colorTitleLink": "#4089E0",
+"colorBackground": "#FEFEF4",
+"fontSizeDomainLink": 14,
+"colorDomainLink": "#000000",
+"titleBold":false,
+"fontSizeDescription": 12,
+'lineHeightTitle' : 15,
+'lineHeightDescription' : 13,
+'lineHeightDomainLink' : 14,
+//'attributionSpacingBelow' : 5,
+"colorText": "#404040",
+"maxTop":2,
+'clicktrackUrl' : 'http://click.reference.com/track/click?site=dict&pageName=dic&origin=0&ldid=260:1&module='+modulearray['top']+'&linkIds=hvmna',
+'noAdLoadedCallback' : function(containerName, adsLoaded) {
+if (!adsLoaded) {
+if(typeof _gslElapseArr!='undefined'){
+_gslElapseArr.push(new Date().getTime()-window.page_start_offset);
+}
+try {
+$j('#gsldebug').css('display','none');
+_afcload='true';
+$j("#afcdeuginfo").css("display","block");
+$j(document).ready(function(){
+ghostwriter(
+"sfdkf_pt1",
+{
+insertType: "append",
+script: { src: "http://pagead2.googlesyndication.com/pagead/show_ads.js" },
+done:afcgslload()
+}
+);
+});
+} catch (exception) {
+(new Image()).src = "http://click.reference.com/track/gslerror?site=dict&pageName=dic&origin=0&ldid=260:1&error="+exception;
+}
+}
+},
+'adLoadedCallback' : function(containerName, adsLoaded) {
+if (adsLoaded) {
+if(typeof _gslElapseArr!='undefined'){
+_gslElapseArr.push(new Date().getTime()-window.page_start_offset);
+}
+try {
+_gslHeight=$j("#adcontainer1").height();
+if(document.getElementById('adcontainer1')){
+document.getElementById('adcontainer1').style.minHeight='0px';
+}
+daisy_afs_match();
+} catch (exception) {
+(new Image()).src = "http://click.reference.com/track/gslerror?site=dict&pageName=dic&origin=0&ldid=260:1&afserror="+exception;
+}
+}
+}
+};
+_googCsa('ads', pageOptions,adblock1);
+_googCsa('jsLoadedCallback',function(){
+if(typeof _gslElapseArr!='undefined'){
+_gslElapseArr.push(new Date().getTime()-window.page_start_offset);
+}
+});
+var daisyAfsMatchArray = new Array();
+daisyAfsMatchArray['top']=_adcount;
+var afslinkID='hvmna';
+var afsbtmConstantArray = new Array();
+afsbtmConstantArray['top']='gslT';afsbtmConstantArray['bot']='gslB';afsbtmConstantArray['mid']='gslM';afsbtmConstantArray['mid1']='gslM1';afsbtmConstantArray['mid2']='gslM2';afsbtmConstantArray['mid3']='gslM3';
+var DAISYCONST = {
+BLOCK : {key: 'block', value:'spl'},
+TEMPLATE: {key: 'template'},
+MODULES : {key: 'modules'},
+DISPLAY_COUNT : {key: 'displayCount'},
+COMMA_DELIMITER : {value:','},
+URL : {value:'/track/impressionClient'}
+};
+function getafsBlockTemplateModule(daisyAfsMatchArray){
+var block = '';
+var template = '';
+var modules = '';
+var displayCount = 0;
+var btmArray = new Array();
+var count = 0;
+try{
+for (var i in daisyAfsMatchArray) {
+if(count==0){
+block = DAISYCONST.BLOCK.value;
+template = i;
+displayCount = daisyAfsMatchArray[i];
+modules = afsbtmConstantArray[i];
+}else{
+block += DAISYCONST.COMMA_DELIMITER.value + DAISYCONST.BLOCK.value;
+template += DAISYCONST.COMMA_DELIMITER.value + i;
+modules += DAISYCONST.COMMA_DELIMITER.value + afsbtmConstantArray[i];
+displayCount += DAISYCONST.COMMA_DELIMITER.value + daisyAfsMatchArray[i];
+}
+count++;
+}
+btmArray[DAISYCONST.BLOCK.key]= block;
+btmArray[DAISYCONST.TEMPLATE.key]= template;
+btmArray[DAISYCONST.MODULES.key]= modules;
+btmArray[DAISYCONST.DISPLAY_COUNT.key]= displayCount;
+return btmArray;
+}catch(err){
+return new Array();
+}
+}
+function appendURLKeyAndValue(desgURL,key,value){
+if(null!=value && ''!=value){
+if(desgURL.indexOf("?")==-1)
+desgURL= desgURL+"?"+key+"="+value;
+else
+desgURL= desgURL+"&"+key+"="+value;
+}
+return desgURL;
+}
+function daisy_afs_match() {
+var _matchUrl= DAISYCONST.URL.value+"?site=dict&queryId=1E5ACDED749818AA6BD631E90F7599B5&pageName=dic&impressionId=U9HXIN//5jtzjg30&ldid=260:1";
+var btmArray = getafsBlockTemplateModule(daisyAfsMatchArray);
+for (var i in btmArray) {
+_matchUrl = appendURLKeyAndValue(_matchUrl,i,btmArray[i]);
+}
+_gslElapseTime='';
+if(typeof _gslElapseArr!='undefined'){
+for (var i in _gslElapseArr) {
+glslog=_gslElapseArr[i];
+_gslElapseTime+=glslog+"|";
+}
+if(_gslElapseTime!=''){
+_gslElapseTime="&gslElapsedTime="+_gslElapseTime;
+}
+}
+_csaHeight='';
+if(typeof(_gslHeight)!='undefined'){
+_csaHeight="&csaHeight="+_gslHeight;
+}
+_linkIds='';
+if(typeof(afslinkID)!='undefined'){
+_linkIds="&linkIds="+afslinkID;
+}
+var urlPrefix = "http://click.reference.com";
+_matchUrl = urlPrefix + _matchUrl+_linkIds+_csaHeight+_gslElapseTime;
+(new Image()).src= _matchUrl;
+}
+</script>
+
+<script type="text/javascript">
+function ss(w){window.status=w;return true;}
+function cs(){window.status='';}
+</script>
+<style type="text/css">
+</style>
+<style>
+.slDL{
+font-family: "Verdana";
+font-size: 12px;
+color: #404040;
+line-height:16px;
+}
+</style>
+<script language="JavaScript" type="text/javascript">
+var longDescriptionPresent = false;
+var topHeavyCharCount = 60;
+var daisyMatchArray = new Array();
+var modConstantArray = new Array();
+var linkConstantArray = new Array();
+modConstantArray['top']='afcT';modConstantArray['bot']='afcB';modConstantArray['mid']='afcM';modConstantArray['mid1']='afcM1';modConstantArray['mid2']='afcM2';modConstantArray['mid3']='afcM3';
+linkConstantArray['top']='oq6zwg';linkConstantArray['bot']='e8zuyk';linkConstantArray['mid']='tdkbd2';linkConstantArray['mid1']='svydps';linkConstantArray['mid2']='j6rvjh';linkConstantArray['mid3']='u3d5w0';
+function render_ads(position, num, startIdx, endIdx) {
+var s = '';
+if(!num && !window['ajsl_ads']) {
+return;
+}
+var top=true;
+if(position == 'top' || position.indexOf('mid')!=-1){
+top=true;
+}else if(position == 'bot'){
+top=false;
+}
+window['sponsoredResultText'] = '<div class="the_label"></div>'
+var prefix = '\n<div class="spl_unshd_NC" id="'+position+'">';
+window['spLabel'] = 'Ads';
+if(num==1){
+window['spLabel'] = 'Ad';
+}
+var suffix = '</div>';
+var template = '<div class="slL">{label}</div> <div class="slANC" style="cursor:default;"> <a id="gg_{counter}" href="{url}" rel="nofollow" onMouseDown="{pickJavascript}" class="nu1NC" style="width:241px"> <span class="slTNC">{title}</span> </a> <br> <a id="gg_{counter}" href="{url}" rel="nofollow" onMouseDown="{pickJavascript}" class="nu1NC" style="width:241px"> <span class="slBNC">{visibleUrl}</span> </a> <br> <span class="slD">{abstract}</span> </div>';
+s += prefix;
+var ads = window['google_ads'];
+var ajslAds=window['ajsl_ads'];
+var spnrAds=window['spnr_ads'];
+for(var i = 0; i < ads.length;i++) {
+if((ads[i].line2.length+ads[i].line3.length) >= topHeavyCharCount){
+longDescriptionPresent = true;
+break;
+}
+}
+if(ajslAds){
+for(var i = 0; i < ajslAds.length;i++) {
+s += render_inhouse_ad(top,ajslAds , template,i)
+}
+}
+var ec=0;
+for(var i = startIdx, j=0; j<num && i <= endIdx;j++, i++) {
+s += render_ad(top, ads, template, startIdx, i, "gsl", num, 0,j,position);
+ec++;
+}
+if(position=='top' || position=='bot' || position.indexOf('mid')!=-1)
+daisyMatchArray[position]=num;
+window['ad_count_'+position]=ec;
+if(spnrAds){
+for(var i = 0; i < spnrAds.length;i++) {
+s += render_inhouse_ad(top,spnrAds ,template,i,true)
+}
+}
+//reset in house text ads to empty so that it will not be printed in the section where it is not required
+window['ajsl_ads']=null;
+window['spnr_ads']=null;
+s += suffix;
+if(true){
+$j('#sfdkf_pt1').append(s);
+if(typeof _gslElapseArr!='undefined'){
+_gslElapseArr.push(new Date().getTime()-window.page_start_offset);
+}
+if(false){
+_gslElapseArr=[];
+}
+afc_MatchTrack();
+}
+else {
+document.write(s);
+}
+if(false){
+document.getElementById('top').style.borderTop = "none";
+}
+}
+function render_ad(top, ads, template, offset, i, type, ec, set,j,position) {
+var displayAdLabelTop = 'false';
+var labelPosition = 'top';
+var fragment = template;
+var pickLog = "daisyPK(this, {en:'{en}',io:'{io}',b:'spl',tp:'(position)',lk:'{lk}',m:'{m}'}, '{ggid}')";
+if(labelPosition == 'top'){
+if(window['spShadedLabel'] && offset == i && set == 0) {
+fragment = fragment.replace(/\{label\}/, spShadedLabel);
+} else if(window['spLabel'] && (j==0)){
+fragment = fragment.replace(/\{label\}/, spLabel);
+}else {
+fragment = fragment.replace(/\{label\}/,"");
+}
+}else{
+if(window['spShadedLabel'] && offset == i && set == 0) {
+fragment = fragment.replace(/\{label\}/, spShadedLabel);
+} else if(window['spLabel'] && (offset+j == (ads.length - 1) || j == ec-1)){
+fragment = fragment.replace(/\{label\}/, spLabel);
+}else {
+fragment = fragment.replace(/\{label\}/,"");
+}
+}
+for(var k=0;fragment.indexOf("{pickJavascript}")!= -1;k++){
+fragment = fragment.replace(/\{pickJavascript\}/,(ads[i].adType == 'ta')?ads[i].pickJavascript:pickLog);
+fragment = fragment.replace(/\(position\)/,position);
+fragment = fragment.replace(/\{counter\}/,(top?"t_":"b_") + (i+1));
+if(position.indexOf("mid")!=-1){
+fragment = fragment.replace(/\{io\}/,i-offset);
+}else {
+fragment = fragment.replace(/\{io\}/, offset ? offset+i : i);
+}
+}
+fragment = fragment.replace(/\{en\}/g, "gc");
+fragment = fragment.replace(/\{ggid\}/g, "gg_" + (top?"t_":"b_") + (i+1));
+if(_daisyClickTrackingEnabled==='true'){
+fragment = fragment.replace(/\{m\}/g,modConstantArray[position]);
+fragment = fragment.replace(/\{lk\}/g,linkConstantArray[position]);
+}else{
+fragment = fragment.replace(/\{ec\}/g, ec);
+}
+fragment = fragment.replace(/\{url\}/g, ads[i].url);
+fragment = fragment.replace(/\{visibleUrl\}/, ads[i].visible_url.length > 65 ? ads[i].visible_url.substring(0, 65) : ads[i].visible_url);
+if(false){
+fragment = fragment.replace(/\{ncbmwidth\}/,"width:px");
+fragment = fragment.replace(/\{ncbm1width\}/,"width:px");
+}
+ads[i].line1 = highlightQuery(ads[i].line1);
+var dbgInfo="";
+if(false){
+adt = 'afc';
+if(ads[i].adType != null && 'ta' == ads[i].adType){
+adt = 'ta';
+}
+dbgInfo="[id=" + ads[i].n +",type="+adt+"]";
+}
+fragment = fragment.replace(/\{title\}/, dbgInfo+ads[i].line1);
+ads[i].line2 = highlightQuery(ads[i].line2);
+ads[i].line3 = highlightQuery(ads[i].line3);
+if(longDescriptionPresent){
+fragment = fragment.replace(/class=\"slD\"/,"class=\"slDL\"");
+}
+fragment = fragment.replace(/\{abstract\}/, ads[i].line2 + " " + ads[i].line3);
+return fragment;
+}
+function render_inhouse_ad(top, ads, template,i,label) {
+if(!label){
+label= false;
+}
+var fragment = template;
+if(window['spShadedLabel'] && i==window['ad_config_top']+ads.length-1) {
+fragment = fragment.replace(/\{label\}/, spShadedLabel);
+} else if((window['spLabel'] && i==window['ad_config_top']+ads.length-1 ) || label){
+fragment = fragment.replace(/\{label\}/, spLabel);
+}else {
+fragment = fragment.replace(/\{label\}/,"");
+}
+for(var k=0;fragment.indexOf("{pickJavascript}")!= -1;k++){
+fragment = fragment.replace(/\{pickJavascript\}/,ads[i].pickJavascript);
+fragment = fragment.replace(/\(position\)/,"");
+fragment = fragment.replace(/\{counter\}/,"");
+fragment = fragment.replace(/\{io\}/, i);
+}
+fragment = fragment.replace(/\{en\}/g, ads[i].adType);
+fragment = fragment.replace('gg_', ads[i].adType+"_" + i);
+fragment = fragment.replace(/\{ec\}/g, ads.length);
+fragment = fragment.replace(/\{url\}/g, ads[i].url);
+fragment = fragment.replace(/\{visibleUrl\}/, ads[i].visible_url.length > 65 ? ads[i].visible_url.substring(0, 65) : ads[i].visible_url);
+if(false){
+fragment = fragment.replace(/\{ncbmwidth\}/,"width:px");
+fragment = fragment.replace(/\{ncbm1width\}/,"width:px");
+}
+ads[i].line1 = highlightQuery(ads[i].line1);
+var dbgInfo="";
+if(false){
+dbgInfo="[id=" + ads[i].n +",type="+ads[i].adType +"]";
+}
+fragment = fragment.replace(/\{title\}/, dbgInfo+ads[i].line1);
+ads[i].line2 = highlightQuery(ads[i].line2);
+ads[i].line3 = highlightQuery(ads[i].line3);
+if(longDescriptionPresent){
+fragment = fragment.replace(/class=\"slD\"/,"class=\"slDL\"");
+}
+fragment = fragment.replace(/\{abstract\}/, ads[i].line2 + " " + ads[i].line3);
+return fragment;
+}
+var ajslAds=new Array();
+var spnrAds=new Array();
+var repeatAds="true";
+function debug_info_update_render_ads(){
+if(document.getElementById('afc_ads_recieved')){
+var no_of_ads_debug_info = document.createTextNode(google_ads.length);
+document.getElementById('afc_ads_recieved').appendChild(no_of_ads_debug_info);
+}
+}
+function google_ad_request_done(google_ads) {
+debug_info_update_render_ads();
+window['google_ads'] = google_ads;
+inhouseAds = false;
+if(window['google_ads'].length < 4)
+{
+inhouseAds=true;
+}
+getInHouseAds();
+window['ajsl_ads']=ajslAds;
+window['spnr_ads']=spnrAds;
+if(google_ads.length != 0) {
+apply_ad_config(google_ads.length);
+render_ads('top', window['ad_config_top'],window['ad_config_top_startIdx'],window['ad_config_top_endIdx']);
+}
+if(document.getElementById('adcontainer1')){document.getElementById('adcontainer1').style.minHeight='0px';}
+}
+function InHouseAd() {
+this.url = "";
+this.visible_url = "";
+this.line1 = "";
+this.line2 = "";
+this.line3 = "";
+this.pickJavascript = "";
+this.adType = "";
+this.n = "";
+}
+function getInHouseAds()
+{
+if(inhouseAds){
+}
+}
+function apply_ad_config(num) {
+window['ad_config_top'] = Math.min(3, num);
+window['ad_config_mid1'] = window['ad_config_mid2'] = num - window['ad_config_top'];
+window['ad_config_mid2'] = 0;
+window['ad_config_bot'] = 0;
+window['ad_config_top_startIdx'] = 0;
+window['ad_config_top_endIdx'] = window['ad_config_mid1_startIdx'] = window['ad_config_mid2_startIdx'] = window['ad_config_top'];
+window['ad_config_mid1_endIdx'] = window['ad_config_mid2_endIdx'] = num;
+window['ad_config_bot_startIdx'] = window['ad_config_bot_endIdx'] = 0;
+}
+if(false){
+google_ad_client = 'ca-aj-lexico-dict-intl';
+google_ad_channel = 'channel-01+LD1';
+google_ad_output = 'js';
+google_max_num_ads = '2';
+google_page_url = '';
+google_num_ads_recieved= '';
+google_ad_type = 'text';
+google_image_size = '';
+google_language = '';
+google_country = '';
+google_encoding = 'utf8';
+google_safe = 'high';
+google_adtest = 'off';
+google_hints = '';
+google_kw = 'take';
+google_kw_type = 'broad';
+google_ad_section = 'default';
+}else{
+google_ad_client = 'ca-aj-lexico-dict-intl';
+google_ad_channel = 'channel-01+LD1';
+google_ad_output = 'js';
+google_ad_type = 'text';
+google_max_num_ads ='2';
+google_safe = 'high';
+google_encoding = 'utf8';
+google_hints = 'take';
+google_ad_section='def';
+google_adtest = 'off';
+}
+var word_arr ;
+var word_arr_len ;
+function highlightQuery(input_str) {
+var queryTokenArray = "take,";
+var tok_arr = queryTokenArray.split(",");
+for(tok_arr_idx=0; tok_arr_idx < tok_arr.length-1; tok_arr_idx ++) {
+if(isCombinationWord(tok_arr[tok_arr_idx])){
+word_arr = tok_arr[tok_arr_idx].split("-");
+word_arr_len = word_arr.length;
+first_pos = input_str.toLowerCase().indexOf(word_arr[0],0);
+if(first_pos !=-1) {
+input_str = highlightCombinationWords(input_str,first_pos);
+}
+}
+else {
+first_pos = input_str.toLowerCase().indexOf(tok_arr[tok_arr_idx],0);
+if(first_pos != -1) {
+input_str = highlightSimpleWords(input_str,tok_arr[tok_arr_idx],first_pos);
+}
+}
+}
+return input_str;
+}
+function isCombinationWord(word){
+if(word.indexOf("-") != -1){
+return true;
+}else{
+return false;
+}
+}
+function isAlpha(ch) {
+if (ch != null && ch.match(/^[a-zA-Z0-9\<\>]+$/)){
+return true;
+}
+return false;
+}
+function isQueryinInput(firstindex, input_str, j){
+for(i=firstindex; i< input_str.length ; ++i) {
+var currindex = i;
+if(!isAlpha(input_str.charAt(i))) {
+if(firstindex == currindex) {/* 2 consecutive non-alpha characters */
+firstindex++;
+}
+else {
+if(word_arr[j] != input_str.substring(firstindex,currindex).toLowerCase())
+return -1;
+if (j == word_arr_len-1) return currindex;
+else return isQueryinInput(currindex+1,input_str,++j);
+}
+}
+}
+if(j < word_arr_len) {
+if(word_arr[j] != input_str.substring(firstindex,currindex+1).toLowerCase())
+return -1;
+}
+return (currindex + 1) ;
+}
+function highlightCombinationWords(input_str,first_pos) {
+exactmatch = isQueryinInput(first_pos+word_arr[0].length,input_str,1) ;
+if(exactmatch !=-1 ) {
+bold_str = "<b>" + input_str.substring(first_pos,exactmatch) + "</b>";
+input_str = input_str.substring(0,first_pos) + bold_str + input_str.substring(exactmatch);
+next_pos = input_str.toLowerCase().indexOf(word_arr[0],exactmatch+7);
+while(next_pos != -1) {
+return highlightCombinationWords(input_str,next_pos);
+}
+}
+return input_str;
+}
+function highlightSimpleWords(input_str,token, first_pos) {
+var end_pos = first_pos + token.length;
+if(!isAlpha(input_str.charAt(end_pos)) && !isAlpha(input_str.charAt(first_pos-1))){
+bold_str = "<b>" + input_str.substring(first_pos,end_pos) + "</b>";
+input_str = input_str.substring(0,first_pos) + bold_str + input_str.substring(end_pos);
+next_pos = input_str.toLowerCase().indexOf(token,end_pos+7);
+}
+else {
+next_pos = input_str.toLowerCase().indexOf(token,end_pos);
+}
+while(next_pos != -1) {
+return highlightSimpleWords(input_str,token,next_pos);
+}
+return input_str;
+}
+$j("#afcdeuginfo").css("display","none");
+</script>
+<div id="sfdkf_pt1"></div>
+<script type="text/javascript">
+function afcAsync_load(){
+var scriptElement = document.createElement('script');
+scriptElement.type = 'text/javascript';
+scriptElement.async = true;
+scriptElement.onload = function(){
+// remote script has loaded
+};
+scriptElement.src = 'http://pagead2.googlesyndication.com/pagead/show_ads.js';
+$j('#sfdkf_pt1').append(scriptElement);
+}
+function afc_MatchTrack(){
+var btmConstantArray = new Array();
+btmConstantArray['top']='afcT';btmConstantArray['bot']='afcB';btmConstantArray['mid']='afcM';btmConstantArray['mid1']='afcM1';btmConstantArray['mid2']='afcM2';btmConstantArray['mid3']='afcM3';
+var DAISYCONST = {
+BLOCK : {key: 'block', value:'spl'},
+TEMPLATE: {key: 'template'},
+MODULES : {key: 'modules'},
+LINKIDS : {key: 'linkIds'},
+DISPLAY_COUNT : {key: 'displayCount'},
+COMMA_DELIMITER : {value:','},
+URL : {value:'/track/impressionClient'}
+};
+function getBlockTemplateModule(daisyMatchArray){
+var block = '';
+var template = '';
+var modules = '';
+var linkids = '';
+var displayCount = 0;
+var btmArray = new Array();
+var count = 0;
+try{
+for (var i in daisyMatchArray) {
+if(count==0){
+block = DAISYCONST.BLOCK.value;
+template = i;
+displayCount = daisyMatchArray[i];
+modules = btmConstantArray[i];
+if(typeof(linkConstantArray)!="undefined" && linkConstantArray[i] !="undefined"){
+linkids = linkConstantArray[i];
+}
+}else{
+block += DAISYCONST.COMMA_DELIMITER.value + DAISYCONST.BLOCK.value;
+template += DAISYCONST.COMMA_DELIMITER.value + i;
+modules += DAISYCONST.COMMA_DELIMITER.value + btmConstantArray[i];
+displayCount += DAISYCONST.COMMA_DELIMITER.value + daisyMatchArray[i];
+if(typeof(linkConstantArray)!="undefined" && linkConstantArray[i] !="undefined"){
+linkids+=linkConstantArray[i];
+}
+}
+count++;
+}
+btmArray[DAISYCONST.BLOCK.key]= block;
+btmArray[DAISYCONST.TEMPLATE.key]= template;
+btmArray[DAISYCONST.MODULES.key]= modules;
+btmArray[DAISYCONST.LINKIDS.key]= linkids;
+btmArray[DAISYCONST.DISPLAY_COUNT.key]= displayCount;
+return btmArray;
+}catch(err){
+return new Array();
+}
+}
+function appendURLKeyAndValue(desgURL,key,value){
+if(null!=value && ''!=value){
+if(desgURL.indexOf("?")==-1)
+desgURL= desgURL+"?"+key+"="+value;
+else
+desgURL= desgURL+"&"+key+"="+value;
+}
+return desgURL;
+}
+function daisy_afc_match() {
+var _matchUrl= DAISYCONST.URL.value+"?site=dict&queryId=1E5ACDED749818AA6BD631E90F7599B5&pageName=dic&impressionId=U9HXIN//5jtzjg30&ldid=260:1";
+var btmArray = getBlockTemplateModule(daisyMatchArray);
+for (var i in btmArray) {
+_matchUrl = appendURLKeyAndValue(_matchUrl,i,btmArray[i]);
+}
+_gslElapseTime='';
+if(typeof _gslElapseArr!='undefined'){
+for (var i in _gslElapseArr) {
+glslog=_gslElapseArr[i];
+_gslElapseTime+=glslog+"|";
+}
+if(_gslElapseTime!=''){
+_gslElapseTime="&gslElapsedTime="+_gslElapseTime;
+}
+}
+var urlPrefix = "http://click.reference.com";
+_matchUrl = urlPrefix + _matchUrl+_gslElapseTime;
+(new Image()).src= _matchUrl;
+}
+//call to daisy afc match tracking
+daisy_afc_match();
+}
+</script>
+
+<div>
+<div class="sep_top shd_hdr pb2 luna">
+<div class="KonaBody" style="padding-left:0px;">
+<div class="lunatext results_content frstluna">
+<!-- google_ad_section_start --><div class="luna-Ent"> <div class="header"> <h2 class="me" data-syllable="take">take</h2><sup></sup> <span class="pronset"><span class="speaker" audio="http://static.sfdict.com/dictstatic/dictionary/audio/luna/T00/T0027200.mp3" default="http://dictionary.reference.com/audio.html/lunaWAV/T00/T0027200"><noscript><a onmousedown="spk(this,{lk:'nx1fkx',en:'wotdau',io:'0',b:'wotd',tp:'lrl',m:'wotdau'})" href="#"></a><a target="_blank" href="http://dictionary.reference.com/audio.html/lunaWAV/T00/T0027200"><img border="0" src="http://static.sfdict.com/dictstatic/g/d/speaker.gif"></a></noscript><a class="audspk" href="http://static.sfdict.com/dictstatic/dictionary/audio/luna/T00/T0027200.mp3"></a></span> <span class="show_ipapr" style="display: none;"><span class="prondelim">/</span><span class="pron">teɪk</span><span class="prondelim">/</span> <a class="questionmark" href="/help/luna/IPA_pron_key.html" target="_blank"></a> <span class="pron_toggle" style="display:none;"><a class="pronlink" onclick="javascript:show_sp()" onmouseout="status='';return true;" onmouseover="status='Click to toggle pronunciation';return true;" alt="Toggle for Spelled" title="Click to show spelled">Show Spelled</a> </span></span><span class="show_spellpr" style="display: inline;"><span class="prondelim">[</span><span class="pron">teyk</span><span class="prondelim">]</span> <a class="questionmark" href="/help/luna/Spell_pron_key.html" target="_blank"></a> <span class="pron_toggle" style="display: none;"><a class="pronlink" onclick="javascript:show_ip()" onmouseout="status='';return true;" onmouseover="status='Click to toggle pronunciation';return true;" alt="Toggle for IPA" title="Click to show IPA">Show IPA</a> </span></span></span> </div> <div class="body"> <div class="pbk"> <span class="pg">verb (used with object), </span><span class="secondary-bf">took, </span><span class="secondary-bf" data-syllable="tak·en, ">taken, </span><span class="secondary-bf" data-syllable="tak·ing.">taking.</span> <div class="luna-Ent"><span class="dnindex">1.</span><div class="dndata">to get into one's hold or <a onmousedown="return ct(this,53686)" href="/browse/possession">possession</a> by voluntary action: <span class="ital-inline">to take a cigarette out of a box; to take a pen and begin to write.</span> </div></div><div class="luna-Ent"><span class="dnindex">2.</span><div class="dndata">to hold, grasp, or grip: <span class="ital-inline">to take a book in one's hand; to take a child by the hand.</span> </div></div><div class="luna-Ent"><span class="dnindex">3.</span><div class="dndata">to get into one's hands, possession, <a onmousedown="return ct(this,53686)" href="/browse/control">control</a>, etc., by <a onmousedown="return ct(this,53686)" href="/browse/force">force</a> or artifice: <span class="ital-inline">to take a bone from a snarling dog.</span> </div></div><div class="luna-Ent"><span class="dnindex">4.</span><div class="dndata">to seize or capture: <span class="ital-inline">to take an enemy town; to take a prisoner.</span> </div></div><div class="luna-Ent"><span class="dnindex">5.</span><div class="dndata">to catch or get (fish, game, etc.), especially by killing: <span class="ital-inline">to take a dozen trout on a good afternoon.</span> </div></div> <a class="more"></a> <div class="moredef"><div class="luna-Ent"><span class="dnindex">6.</span><div class="dndata">to pick from a number; select: <span class="ital-inline">Take whichever you wish.</span> </div></div><div class="luna-Ent"><span class="dnindex">7.</span><div class="dndata">to receive and accept willingly (something given or offered): <span class="ital-inline">to take a compliment with a smile; to take a bribe.</span> </div></div><div class="luna-Ent"><span class="dnindex">8.</span><div class="dndata">to receive or be the recipient of (something bestowed, administered, etc.): <span class="ital-inline">to take first prize.</span> </div></div><div class="luna-Ent"><span class="dnindex">9.</span><div class="dndata">to accept and act upon or comply with: <span class="ital-inline">to take advice; to take a dare.</span> </div></div><div class="luna-Ent"><span class="dnindex">10.</span><div class="dndata">to receive or accept (a person) into some relation: <span class="ital-inline">to take someone in <a onmousedown="return ct(this,53686)" href="/browse/marriage">marriage</a>; to take new members once a year.</span> </div></div><div class="luna-Ent"><span class="dnindex">11.</span><div class="dndata">to receive, react, or respond to in a specified manner: <span class="ital-inline">Although she kept calm, she took his death hard.</span> </div></div><div class="luna-Ent"><span class="dnindex">12.</span><div class="dndata">to form in the mind; make: <span class="ital-inline">The company took the <a onmousedown="return ct(this,53686)" href="/browse/decision">decision</a> to shut down.</span> </div></div><div class="luna-Ent"><span class="dnindex">13.</span><div class="dndata">to receive as a payment or charge: <span class="ital-inline">He refused to take any money for the use of his car.</span> </div></div><div class="luna-Ent"><span class="dnindex">14.</span><div class="dndata">to gain for use by payment, lease, etc.: <span class="ital-inline">to take a box at the opera; to take a beach house for a month.</span> </div></div><div class="luna-Ent"><span class="dnindex">15.</span><div class="dndata">to secure regularly or periodically by payment: <span class="ital-inline">to take a magazine.</span> </div></div><div class="luna-Ent"><span class="dnindex">16.</span><div class="dndata">to get or obtain from a source; derive: <span class="ital-inline">The book takes its title from Dante.</span> </div></div><div class="luna-Ent"><span class="dnindex">17.</span><div class="dndata">to extract or quote: <span class="ital-inline">He took whole passages straight from Dickens.</span> </div></div><div class="luna-Ent"><span class="dnindex">18.</span><div class="dndata">to obtain or exact as <a onmousedown="return ct(this,53686)" href="/browse/compensation">compensation</a> for some wrong: <span class="ital-inline">to take revenge.</span> </div></div><div class="luna-Ent"><span class="dnindex">19.</span><div class="dndata">to receive into the body or system, as by swallowing or inhaling: <span class="ital-inline">to take a pill; to take a breath of fresh air.</span> </div></div><div class="luna-Ent"><span class="dnindex">20.</span><div class="dndata">to have for one's benefit or use: <span class="ital-inline">to take a meal; to take a nap; to take a bath.</span> </div></div><div class="luna-Ent"><span class="dnindex">21.</span><div class="dndata">to use as a flavoring agent in a food or beverage: <span class="ital-inline">to take sugar in one's coffee.</span> </div></div><div class="luna-Ent"><span class="dnindex">22.</span><div class="dndata">to be subjected to; undergo: <span class="ital-inline">to take a heat treatment.</span> </div></div><div class="luna-Ent"><span class="dnindex">23.</span><div class="dndata">to endure or submit to with equanimity or without an appreciable weakening of one's resistance: <span class="ital-inline">to take a joke; unable to take punishment.</span> </div></div><div class="luna-Ent"><span class="dnindex">24.</span><div class="dndata">to enter into the enjoyment of (recreation, a holiday, etc.): <span class="ital-inline">to take a vacation.</span> </div></div><div class="luna-Ent"><span class="dnindex">25.</span><div class="dndata">to carry off without permission: <span class="ital-inline">to take something that belongs to another.</span> </div></div><div class="luna-Ent"><span class="dnindex">26.</span><div class="dndata">to remove: <span class="ital-inline">to take the pins out of one's hair.</span> </div></div><div class="luna-Ent"><span class="dnindex">27.</span><div class="dndata">to remove by death: <span class="ital-inline">The flood took many families.</span> </div></div><div class="luna-Ent"><span class="dnindex">28.</span><div class="dndata">to end (a life): <span class="ital-inline">She took her own life.</span> </div></div><div class="luna-Ent"><span class="dnindex">29.</span><div class="dndata">to subtract or deduct: <span class="ital-inline">If you take 2 from 5, that leaves 3.</span> </div></div><div class="luna-Ent"><span class="dnindex">30.</span><div class="dndata">to carry with one: <span class="ital-inline">Take your lunch with you. Are you taking an umbrella?</span> </div></div><div class="luna-Ent"><span class="dnindex">31.</span><div class="dndata">to convey in a means of transportation: <span class="ital-inline">We took them for a ride in the country.</span> </div></div><div class="luna-Ent"><span class="dnindex">32.</span><div class="dndata">(of a vehicle) to convey or transport: <span class="ital-inline">Will this bus take me across town?</span> </div></div><div class="luna-Ent"><span class="dnindex">33.</span><div class="dndata">(of a road, path, etc.) to serve as a means of conducting to or through some place or region: <span class="ital-inline">Fifth Avenue took us through the center of town. These stairs <a onmousedown="return ct(this,53686)" href="/browse/will">will</a> take you up to the attic.</span> </div></div><div class="luna-Ent"><span class="dnindex">34.</span><div class="dndata">to bring about a change in the state or condition of: <span class="ital-inline">Her ambition and perseverance took her quickly to the top of her field.</span> </div></div><div class="luna-Ent"><span class="dnindex">35.</span><div class="dndata">to conduct or escort: <span class="ital-inline">to take someone out for dinner.</span> </div></div><div class="luna-Ent"><span class="dnindex">36.</span><div class="dndata">to <a onmousedown="return ct(this,53686)" href="/browse/set">set</a> about or succeed in getting over, through, or around (some obstacle); clear; negotiate: <span class="ital-inline">The horse took the hedge easily. He took the corner at top speed.</span> </div></div><div class="luna-Ent"><span class="dnindex">37.</span><div class="dndata">to come upon suddenly; catch: <span class="ital-inline">to take someone by surprise.</span> </div></div><div class="luna-Ent"><span class="dnindex">38.</span><div class="dndata">to get or contract; catch: <span class="ital-inline">He took cold over the weekend. I took a chill.</span> </div></div><div class="luna-Ent"><span class="dnindex">39.</span><div class="dndata">to attack or affect, as with a disease: <span class="ital-inline">suddenly taken with a fit of coughing.</span> </div></div><div class="luna-Ent"><span class="dnindex">40.</span><div class="dndata">to be capable of attaining as a result of some action or treatment: <span class="ital-inline">Most leathers take a high polish.</span> </div></div><div class="luna-Ent"><span class="dnindex">41.</span><div class="dndata">to absorb or become impregnated with; be susceptible to: <span class="ital-inline">Waxed paper will not take ink. This cloth takes dye.</span> </div></div><div class="luna-Ent"><span class="dnindex">42.</span><div class="dndata">to attract and hold: <span class="ital-inline">The red sweater took his eye. The urgent voice took her attention.</span> </div></div><div class="luna-Ent"><span class="dnindex">43.</span><div class="dndata">to captivate or charm: <span class="ital-inline">The kitten took my fancy.</span> </div></div><div class="luna-Ent"><span class="dnindex">44.</span><div class="dndata">to require: <span class="ital-inline">It takes courage to do that. The climb took all our strength.</span> </div></div><div class="luna-Ent"><span class="dnindex">45.</span><div class="dndata">to employ for some specified or implied purpose: <span class="ital-inline">to take measures to curb drugs.</span> </div></div><div class="luna-Ent"><span class="dnindex">46.</span><div class="dndata">to use as a means of transportation: <span class="ital-inline">to take a bus to the ferry.</span> </div></div><div class="luna-Ent"><span class="dnindex">47.</span><div class="dndata">to get on or board (a means of transportation) at a given time or in a given place: <span class="ital-inline">She takes the train at Scarsdale.</span> </div></div><div class="luna-Ent"><span class="dnindex">48.</span><div class="dndata">to proceed to occupy: <span class="ital-inline">to take a seat.</span> </div></div><div class="luna-Ent"><span class="dnindex">49.</span><div class="dndata">to occupy; fill (time, space, etc.): <span class="ital-inline">His hobby takes most of his spare time. The machine takes a lot of room.</span> </div></div><div class="luna-Ent"><span class="dnindex">50.</span><div class="dndata">to use up; consume: <span class="ital-inline">This car takes a great deal of oil. He took ten minutes to solve the problem.</span> </div></div><div class="luna-Ent"><span class="dnindex">51.</span><div class="dndata">to avail oneself of: <span class="ital-inline">He took the opportunity to leave. She took the time to finish it properly.</span> </div></div><div class="luna-Ent"><span class="dnindex">52.</span><div class="dndata">to do, perform, execute, etc.: <span class="ital-inline">to take a walk.</span> </div></div><div class="luna-Ent"><span class="dnindex">53.</span><div class="dndata">to go into or enter: <span class="ital-inline">Take the next road to the left.</span> </div></div><div class="luna-Ent"><span class="dnindex">54.</span><div class="dndata">to adopt and enter upon (a way, course, etc.): <span class="ital-inline">to take the path of least resistance.</span> </div></div><div class="luna-Ent"><span class="dnindex">55.</span><div class="dndata">to act or perform: <span class="ital-inline">to take the part of the <a onmousedown="return ct(this,53686)" href="/browse/hero">hero</a>.</span> </div></div><div class="luna-Ent"><span class="dnindex">56.</span><div class="dndata">to make (a reproduction, picture, or photograph): <span class="ital-inline">to take home movies of the children.</span> </div></div><div class="luna-Ent"><span class="dnindex">57.</span><div class="dndata">to make a picture, especially a photograph, of: <span class="ital-inline">The photographer took us sitting down.</span> </div></div><div class="luna-Ent"><span class="dnindex">58.</span><div class="dndata">to write down: <span class="ital-inline">to take a letter in <a onmousedown="return ct(this,53686)" href="/browse/shorthand">shorthand</a>; to take notes at a lecture.</span> </div></div><div class="luna-Ent"><span class="dnindex">59.</span><div class="dndata">to apply oneself to; study: <span class="ital-inline">to take ballet; She took four courses in her freshman year.</span> </div></div><div class="luna-Ent"><span class="dnindex">60.</span><div class="dndata">to deal with; treat: <span class="ital-inline">to take things in their proper order.</span> </div></div><div class="luna-Ent"><span class="dnindex">61.</span><div class="dndata">to proceed to handle in some manner: <span class="ital-inline">to take a matter under consideration.</span> </div></div><div class="luna-Ent"><span class="dnindex">62.</span><div class="dndata">to assume or undertake (a function, duty, <a onmousedown="return ct(this,53686)" href="/browse/job">job</a>, etc.): <span class="ital-inline">The mayor took office last month.</span> </div></div><div class="luna-Ent"><span class="dnindex">63.</span><div class="dndata">to assume or adopt (a symbol, badge, or the like) as a token of office: <span class="ital-inline">to take the veil; to take the throne.</span> </div></div><div class="luna-Ent"><span class="dnindex">64.</span><div class="dndata">to assume the obligation of; be bound by: <span class="ital-inline">to take an oath.</span> </div></div><div class="luna-Ent"><span class="dnindex">65.</span><div class="dndata">to assume or adopt as one's own: <span class="ital-inline">to take someone's part in an argument; He took the side of the speaker.</span> </div></div><div class="luna-Ent"><span class="dnindex">66.</span><div class="dndata">to assume or appropriate as if by right: <span class="ital-inline">to take credit for someone else's work.</span> </div></div><div class="luna-Ent"><span class="dnindex">67.</span><div class="dndata">to accept the burden of: <span class="ital-inline">She took the blame for his failure.</span> </div></div><div class="luna-Ent"><span class="dnindex">68.</span><div class="dndata">to determine by inquiry, examination, measurement, scientific observation, etc.: <span class="ital-inline">to take someone's pulse; to take a census.</span> </div></div><div class="luna-Ent"><span class="dnindex">69.</span><div class="dndata">to make or carry out for purposes of yielding such a determination: <span class="ital-inline">to take someone's measurements; to take a seismographic reading.</span> </div></div><div class="luna-Ent"><span class="dnindex">70.</span><div class="dndata">to begin to have; experience (a certain feeling or state of mind): <span class="ital-inline">to take pride in one's appearance.</span> </div></div><div class="luna-Ent"><span class="dnindex">71.</span><div class="dndata">to form and hold in the mind: <span class="ital-inline">to take a gloomy view.</span> </div></div><div class="luna-Ent"><span class="dnindex">72.</span><div class="dndata">to grasp or apprehend mentally; understand; comprehend: <span class="ital-inline">Do you take my meaning, sir?</span> </div></div><div class="luna-Ent"><span class="dnindex">73.</span><div class="dndata">to understand in a specified way: <span class="ital-inline">You shouldn't take the remark as an insult.</span> </div></div><div class="luna-Ent"><span class="dnindex">74.</span><div class="dndata">to grasp the meaning of (a person): <span class="ital-inline">if we take him correctly.</span> </div></div><div class="luna-Ent"><span class="dnindex">75.</span><div class="dndata">to accept the statements of: <span class="ital-inline">to take him at his <a onmousedown="return ct(this,53686)" href="/browse/word">word</a>.</span> </div></div><div class="luna-Ent"><span class="dnindex">76.</span><div class="dndata">to assume as a fact: <span class="ital-inline">I take it that you will be there.</span> </div></div><div class="luna-Ent"><span class="dnindex">77.</span><div class="dndata">to regard or consider: <span class="ital-inline">They were taken to be wealthy.</span> </div></div><div class="luna-Ent"><span class="dnindex">78.</span><div class="dndata">to capture or win (a piece, trick, etc.) in a game. </div></div><div class="luna-Ent"><span class="dnindex">79.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>to cheat, swindle, or victimize: <span class="ital-inline">They really take people in that shop. The museum got taken on that painting.</span> </div></div><div class="luna-Ent"><span class="dnindex">80.</span><div class="dndata">to win or obtain money from: <span class="ital-inline">He took me for $10 in the poker game.</span> </div></div><div class="luna-Ent"><span class="dnindex">81.</span><div class="dndata">(of a man) to have sexual intercourse with. </div></div><div class="luna-Ent"><span class="dnindex">82.</span><div class="dndata"><span class="labset"><span class="ital-inline">Grammar</span>. </span>to be used with (a certain form, accent, case, mood, etc.): <span class="ital-inline">a <a onmousedown="return ct(this,53686)" href="/browse/verb">verb</a> that always takes an <a onmousedown="return ct(this,53686)" href="/browse/object">object</a>.</span> </div></div><div class="luna-Ent"><span class="dnindex">83.</span><div class="dndata"><span class="labset"><span class="ital-inline">Law.</span> </span>to acquire property, as on the happening of an event: <span class="ital-inline">They take a fortune under the will.</span> </div></div><div class="luna-Ent"><span class="dnindex">84.</span><div class="dndata"><span class="labset"><span class="ital-inline">Baseball.</span> </span>(of a batter) to allow (a pitch) to go by without swinging at it: <span class="ital-inline">He took a third strike.</span> </div></div><a class="less"></a></div> </div>
+<div class="pbk"> <span class="pg">verb (used without object), </span><span class="secondary-bf">took, </span><span class="secondary-bf" data-syllable="tak·en, ">taken, </span><span class="secondary-bf" data-syllable="tak·ing.">taking.</span> <div class="luna-Ent"><span class="dnindex">85.</span><div class="dndata">to catch or engage, as a mechanical device: <span class="ital-inline">She turned the key and heard a click as the catch took.</span> </div></div><div class="luna-Ent"><span class="dnindex">86.</span><div class="dndata">to strike <a onmousedown="return ct(this,53686)" href="/browse/root">root</a> or begin to grow, as a plant. </div></div><div class="luna-Ent"><span class="dnindex">87.</span><div class="dndata">to adhere, as ink, dye, or color. </div></div><div class="luna-Ent"><span class="dnindex">88.</span><div class="dndata">(of a person or thing) to win favor or acceptance: <span class="ital-inline">a new TV show that took with the public.</span> </div></div><div class="luna-Ent"><span class="dnindex">89.</span><div class="dndata">to have the intended result or effect, as a medicine, inoculation, etc.: <span class="ital-inline">The vaccination took.</span> </div></div> <a class="more"></a> <div class="moredef"><div class="luna-Ent"><span class="dnindex">90.</span><div class="dndata">to enter into possession, as of an estate. </div></div><div class="luna-Ent"><span class="dnindex">91.</span><div class="dndata">to detract (usually followed by <span class="ital-inline">from</span> ). </div></div><div class="luna-Ent"><span class="dnindex">92.</span><div class="dndata">to apply or devote oneself: <span class="ital-inline">He took to his studies.</span> </div></div><div class="luna-Ent"><span class="dnindex">93.</span><div class="dndata">to make one's way; proceed; go: <span class="ital-inline">to take across the meadow.</span> </div></div><div class="luna-Ent"><span class="dnindex">94.</span><div class="dndata">to fall or become: <span class="ital-inline">She took sick and had to go home.</span> </div></div><div class="luna-Ent"><span class="dnindex">95.</span><div class="dndata">to admit of being photographed in a particular manner: <span class="ital-inline">a <a onmousedown="return ct(this,53686)" href="/browse/model">model</a> who takes exceptionally well.</span> </div></div><div class="luna-Ent"><span class="dnindex">96.</span><div class="dndata">to admit of being moved or separated: <span class="ital-inline">This crib takes apart for easy storage.</span> </div></div><a class="less"></a></div> </div>
+<div class="pbk"> <span class="pg">noun </span> <div class="luna-Ent"><span class="dnindex">97.</span><div class="dndata">the act of taking. </div></div><div class="luna-Ent"><span class="dnindex">98.</span><div class="dndata">something that is taken. </div></div><div class="luna-Ent"><span class="dnindex">99.</span><div class="dndata">the quantity of fish, game, etc., taken at one time. </div></div><div class="luna-Ent"><span class="dnindex">100.</span><div class="dndata">an opinion or assessment: <span class="ital-inline">What's your take on the candidate?</span> </div></div><div class="luna-Ent"><span class="dnindex">101.</span><div class="dndata">an approach; treatment: <span class="ital-inline">a new take on an old idea.</span> </div></div> <a class="more"></a> <div class="moredef"><div class="luna-Ent"><span class="dnindex">102.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>money taken in, especially profits. </div></div><div class="luna-Ent"><span class="dnindex">103.</span><div class="dndata"><span class="labset"><span class="ital-inline">Journalism.</span> </span>a portion of copy assigned to a Linotype operator or compositor, usually part of a story or article. </div></div><div class="luna-Ent"><span class="dnindex">104.</span><div class="dndata"><span class="labset"><span class="ital-inline">Movies.</span></span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">a scene, or a portion of a scene, photographed without any interruption or <a onmousedown="return ct(this,53686)" href="/browse/break">break</a>. </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">an instance of such continuous operation of the camera. </div></div></div></div><div class="luna-Ent"><span class="dnindex">105.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>a visual and mental response to something typically manifested in a stare expressing total absorption or wonderment: <span class="ital-inline">She did a slow take on being asked by reporters the same question for the third time.</span> </div></div><div class="luna-Ent"><span class="dnindex">106.</span><div class="dndata">a recording of a musical performance. </div></div><div class="luna-Ent"><span class="dnindex">107.</span><div class="dndata"><span class="labset"><span class="ital-inline">Medicine/Medical</span>. </span>a successful inoculation. </div></div><a class="less"></a></div> </div>
+<span class="pg">Verb <a onmousedown="return ct(this,53686)" href="/browse/phrases">phrases</a> </span><div class="luna-Ent"><span class="dnindex">108.</span><div class="dndata"><span class="secondary-bf">take after, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to resemble (another person, as a parent) physically, temperamentally, etc.: <span class="ital-inline">The baby took after his mother.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata"><span class="var">Also, <span class="secondary-bf">take off after, </span><span class="secondary-bf">take out after.</span> </span>to follow; chase: <span class="ital-inline">The detective took after the burglars.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">109.</span><div class="dndata"><span class="secondary-bf">take back, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to regain possession of: <span class="ital-inline">to take back one's lawn mower.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to return, as for exchange: <span class="ital-inline">It was defective, so I took it back to the store.</span> </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to allow to return; resume a relationship with: <span class="ital-inline">She said she would never take him back again.</span> </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to cause to remember: <span class="ital-inline">It takes one back to the old days.</span> </div></div><div class="luna-Nested"><span class="dnindex">e.</span><div class="dndata">to retract: <span class="ital-inline">to take back a statement.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">110.</span><div class="dndata"><span class="secondary-bf">take down, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to move from a higher to a lower level or place. </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to pull apart or take apart; dismantle; disassemble. </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to write down; record. </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to diminish the pride or arrogance of; humble: <span class="ital-inline">to take someone down a notch or two.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">111.</span><div class="dndata"><span class="secondary-bf">take for, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to assume to be: <span class="ital-inline">I took it for the truth.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to assume falsely to be; mistake for: <span class="ital-inline">to be taken for a foreigner.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">112.</span><div class="dndata"><span class="secondary-bf">take in, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to permit to enter; admit. </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to alter (an article of clothing) so as to make smaller. </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to provide lodging for. </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to include; encompass. </div></div><div class="luna-Nested"><span class="dnindex">e.</span><div class="dndata">to grasp the meaning of; comprehend. </div></div><div class="luna-Nested"><span class="dnindex">f.</span><div class="dndata">to deceive; trick; cheat. </div></div><div class="luna-Nested"><span class="dnindex">g.</span><div class="dndata">to observe; notice. </div></div><div class="luna-Nested"><span class="dnindex">h.</span><div class="dndata">to visit or attend: <span class="ital-inline">to take in a show.</span> </div></div><div class="luna-Nested"><span class="dnindex">i.</span><div class="dndata">to furl (a sail). </div></div><div class="luna-Nested"><span class="dnindex">j.</span><div class="dndata">to receive as proceeds, as from business activity. </div></div><div class="luna-Nested"><span class="dnindex">k.</span><div class="dndata"><span class="labset"><span class="ital-inline">Chiefly British</span>. </span>to subscribe to: <span class="ital-inline">to take in a magazine.</span> </div></div></div></div> <a class="more"></a> <div class="moredef"><div class="luna-Ent"><span class="dnindex">113.</span><div class="dndata"><span class="secondary-bf">take off, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to remove: <span class="ital-inline">Take off your coat.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to lead away: <span class="ital-inline">The child was taken off by kidnappers.</span> </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>to depart; leave: <span class="ital-inline">They took off yesterday for California.</span> </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to leave the ground, as an airplane. </div></div><div class="luna-Nested"><span class="dnindex">e.</span><div class="dndata">to move onward or forward with a sudden or intense burst of speed: <span class="ital-inline">The police car took off after the drunken driver.</span> </div></div><div class="luna-Nested"><span class="dnindex">f.</span><div class="dndata">to withdraw or remove from: <span class="ital-inline">She was taken off the night shift.</span> </div></div><div class="luna-Nested"><span class="dnindex">g.</span><div class="dndata">to remove by death; kill: <span class="ital-inline">Millions were taken off by the Black Plague.</span> </div></div><div class="luna-Nested"><span class="dnindex">h.</span><div class="dndata">to make a likeness or copy of; reproduce. </div></div><div class="luna-Nested"><span class="dnindex">i.</span><div class="dndata">to subtract, as a discount; deduct: <span class="ital-inline">Shop early and we'll take off 20 percent.</span> </div></div><div class="luna-Nested"><span class="dnindex">j.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>to imitate; mimic; burlesque. </div></div><div class="luna-Nested"><span class="dnindex">k.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>to achieve sudden, marked growth, success, etc.: <span class="ital-inline">Sales took off just before Christmas. The actor's career took off after his role in that movie.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">114.</span><div class="dndata"><span class="secondary-bf">take on, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to hire; employ. </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to undertake; assume: <span class="ital-inline">to take on new responsibilities.</span> </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to acquire: <span class="ital-inline">The situation begins to take on a new light.</span> </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to accept as a challenge; contend against: <span class="ital-inline">to take on a <a onmousedown="return ct(this,53686)" href="/browse/bully">bully</a>.</span> </div></div><div class="luna-Nested"><span class="dnindex">e.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>to show great emotion; become excited: <span class="ital-inline">There's no need to take on so.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">115.</span><div class="dndata"><span class="secondary-bf">take out, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to withdraw; remove: <span class="ital-inline">to take out a handkerchief.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to procure by application: <span class="ital-inline">to take out an insurance policy.</span> </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to carry out for use or consumption elsewhere: <span class="ital-inline">to take a book out of the library; to get food to take out.</span> </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to escort; invite: <span class="ital-inline">He takes out my sister now and then.</span> </div></div><div class="luna-Nested"><span class="dnindex">e.</span><div class="dndata">to set out; start: <span class="ital-inline">They took out for the nearest beach.</span> </div></div><div class="luna-Nested"><span class="dnindex">f.</span><div class="dndata"><span class="labset"><span class="ital-inline">Slang.</span> </span>to kill; destroy. </div></div></div></div><div class="luna-Ent"><span class="dnindex">116.</span><div class="dndata"><span class="secondary-bf">take over, </span>to assume management or possession of or responsibility for: <span class="ital-inline">The first officer took over the ship when the captain suffered a heart attack.</span> </div></div><div class="luna-Ent"><span class="dnindex">117.</span><div class="dndata"><span class="secondary-bf">take to, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to devote or apply oneself to; become habituated to: <span class="ital-inline">to take to drink.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to respond favorably to; begin to like: <span class="ital-inline">They took to each other at once.</span> </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to go to: <span class="ital-inline">to take to one's bed.</span> </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to have recourse to; resort to: <span class="ital-inline">She took to getting up at five to go jogging before work.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">118.</span><div class="dndata"><span class="secondary-bf">take up, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to occupy oneself with the study or practice of: <span class="ital-inline">She took up painting in her spare time.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to lift or pick up: <span class="ital-inline">He took up the fallen leaves with a rake.</span> </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to occupy; cover: <span class="ital-inline">A grand piano would take up half of our living room.</span> </div></div><div class="luna-Nested"><span class="dnindex">d.</span><div class="dndata">to consume; use up; absorb: <span class="ital-inline">Traveling to her job takes up a great deal of time.</span> </div></div><div class="luna-Nested"><span class="dnindex">e.</span><div class="dndata">to begin to advocate or support; sponsor: <span class="ital-inline">He has taken up another struggling artist.</span> </div></div><div class="luna-Nested"><span class="dnindex">f.</span><div class="dndata">to continue; resume: <span class="ital-inline">We took up where we had left off.</span> </div></div><div class="luna-Nested"><span class="dnindex">g.</span><div class="dndata">to reply to in order to reprove: <span class="ital-inline">The author takes up his critics in the preface of his latest book.</span> </div></div><div class="luna-Nested"><span class="dnindex">h.</span><div class="dndata">to assume: <span class="ital-inline">He took up the duties of the presidency.</span> </div></div><div class="luna-Nested"><span class="dnindex">i.</span><div class="dndata">to absorb: <span class="ital-inline">Use a sponge to take up the spilled milk.</span> </div></div><div class="luna-Nested"><span class="dnindex">j.</span><div class="dndata">to make shorter, as by hemming: <span class="ital-inline">to take up the sleeves an inch.</span> </div></div><div class="luna-Nested"><span class="dnindex">k.</span><div class="dndata">to make tighter, as by winding in: <span class="ital-inline">to take up the slack in a reel of tape.</span> </div></div><div class="luna-Nested"><span class="dnindex">l.</span><div class="dndata">to deal with in discussion: <span class="ital-inline">to take up the issue of mass transit.</span> </div></div><div class="luna-Nested"><span class="dnindex">m.</span><div class="dndata">to adopt seriously: <span class="ital-inline">to take up the idea of seeking public office.</span> </div></div><div class="luna-Nested"><span class="dnindex">n.</span><div class="dndata">to accept, as an offer or challenge. </div></div><div class="luna-Nested"><span class="dnindex">o.</span><div class="dndata">to buy as much as is offered: <span class="ital-inline">The sale was taken up in a matter of days.</span> </div></div><div class="luna-Nested"><span class="dnindex">p.</span><div class="dndata"><span class="labset"><span class="ital-inline">Chiefly British</span>. </span>to clear by paying off, as a loan. </div></div><div class="luna-Nested"><span class="dnindex">q.</span><div class="dndata"><span class="labset"><span class="ital-inline">Obsolete</span>. </span>to arrest (especially a runaway slave). </div></div></div></div><div class="luna-Ent"><span class="dnindex">119.</span><div class="dndata"><span class="secondary-bf">take up with, </span><span class="labset"><span class="ital-inline">Informal.</span> </span>to become friendly with; keep company with: <span class="ital-inline">He took up with a bad crowd.</span> </div></div><a class="less"></a></div>
+<span class="pg">Idioms </span><div class="luna-Ent"><span class="dnindex">120.</span><div class="dndata"><span class="secondary-bf">on the take, </span><span class="labset"><span class="ital-inline">Slang.</span></span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">accepting bribes. </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">in search of personal profit at the expense of others. </div></div></div></div><div class="luna-Ent"><span class="dnindex">121.</span><div class="dndata"><span class="secondary-bf">take for granted. </span><a style="font-style:normal; font-weight:normal;" href="/browse/grant">grant</a> <span><span class="dn">(</span> def 10 <span class="dn">)</span></span>. </div></div><div class="luna-Ent"><span class="dnindex">122.</span><div class="dndata"><span class="secondary-bf">take it, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to accept or believe something; aquiesce: <span class="ital-inline">I'll take it on your say-so.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata"><span class="labset"><span class="ital-inline">Informal.</span> </span>to be able to resist or endure hardship, abuse, etc. </div></div><div class="luna-Nested"><span class="dnindex">c.</span><div class="dndata">to understand: <span class="ital-inline">I take it that you're not interested.</span> </div></div></div></div><div class="luna-Ent"><span class="dnindex">123.</span><div class="dndata"><span class="secondary-bf">take it out in, </span>to accept as payment for services or as an equivalent of monetary compensation: <span class="ital-inline">He takes it out in goods instead of cash.</span> </div></div><div class="luna-Ent"><span class="dnindex">124.</span><div class="dndata"><span class="secondary-bf">take it out of, </span><div class="luna-Nested"><span class="dnindex">a.</span><div class="dndata">to exhaust; enervate: <span class="ital-inline">Every year the winter takes it out of me.</span> </div></div><div class="luna-Nested"><span class="dnindex">b.</span><div class="dndata">to exact payment from; penalize: <span class="ital-inline">They took it out of your pay.</span> </div></div></div></div> <a class="more"></a> <div class="moredef"><div class="luna-Ent"><span class="dnindex">125.</span><div class="dndata"><span class="secondary-bf">take it out on, </span><span class="labset"><span class="ital-inline">Informal.</span> </span>to cause (someone else) to suffer for one's own misfortune or dissatisfaction: <span class="ital-inline">Just because you're angry with him you don't have to take it out on me!</span> </div></div><div class="luna-Ent"><span class="dnindex">126.</span><div class="dndata"><span class="secondary-bf">take up a collection, </span>to ask for or gather donations, usually of money, from a number of people. </div></div><div class="luna-Ent"><span class="dnindex">127.</span><div class="dndata"><span class="secondary-bf">take upon oneself, </span>to assume as a responsibility or obligation: <span class="ital-inline">She has taken it upon herself to support the family.</span> </div></div><a class="less"></a></div> </div> <div class="tail"> <hr class="ety"> <div class="ety"> <b><i>Origin: </i></b> <br /> <span class="rom-inline">before 1100;</span> <span class="rom-inline">Middle English</span> <span class="ital-inline">taken</span> to take, strike, lay hold of, grasp, <span class="rom-inline">late Old English</span> <span class="ital-inline">tacan</span> to grasp, touch < <span class="rom-inline">Old Norse</span> <span class="ital-inline">taka</span> to take; cognate with <span class="rom-inline">Middle Dutch</span> <span class="ital-inline">taken</span> to grasp, <span class="rom-inline">Gothic</span> <span class="ital-inline">tekan</span> to touch </div> <br/> <span class="sectionLabel">Related forms</span> <div class="roset"> <span class="secondary-bf" data-syllable="tak·a·ble, ">takable, </span><span class="secondary-bf" data-syllable="take·a·ble, ">takeable, </span><span class="pg">adjective </span> </div> <div class="roset"> <span class="secondary-bf" data-syllable="tak·er, ">taker, </span><span class="pg">noun </span> </div> <div class="roset"> <span class="secondary-bf" data-syllable="un·tak·a·ble, ">untakable, </span><span class="pg">adjective </span> </div> <div class="roset"> <span class="secondary-bf" data-syllable="un·take·a·ble, ">untakeable, </span><span class="pg">adjective </span> </div> <br/><div><span class="sectionLabel">Can be confused: </span> <a style="font-style:normal; font-weight:normal;" href="/browse/bring">bring</a>, <span class="secondary-bf">take </span>(see synonym study at <a style="font-style:normal; font-weight:normal;" href="/browse/bring">bring</a>). </div> <br/><div><span class="sectionLabel">Synonyms</span><br/><span class="secondary-bf"><span>1. </span></span>acquire, secure, procure. See <a style="font-style:normal; font-weight:normal;" href="/browse/bring">bring</a>. <span class="secondary-bf"><span>6. </span></span>choose. <span class="secondary-bf"><span>23. </span></span>bear, stand, tolerate. <span class="secondary-bf"><span>43. </span></span>delight, attract, interest, engage. <span class="secondary-bf"><span>44. </span></span>need, demand. <span class="secondary-bf"><span>45. </span></span>use. <span class="secondary-bf"><span>68. </span></span>ascertain. <span class="secondary-bf"><span>76. </span></span>suppose, presume. </div><br/><div><span class="sectionLabel">Antonyms</span><br/><span class="secondary-bf"><span>1. </span></span>give. </div> </div></div><!-- google_ad_section_end -->
+<div class="rcr">
+Dictionary.com Unabridged<br />Based on the Random House Dictionary, © Random House, Inc. 2014.
+<br/>
+<a rel="nofollow" href='/cite.html?qh=take&ia=luna' >Cite This Source</a>
+<div id="link_to_div">|</div>
+<a id="link_to_style" onclick="return ask.dict.link_functionnewserp(this);">Link To <b>take</b></a>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+_init_luna();
+show_sp();
+</script>
+<script type="text/javascript">
+if($j){
+$j('#nonfav').append('<a id="fncyb" href="" ></a>');
+$j('#fncyb').attr("href","http://app.dictionary.com/signup/core?source=favorites&fnCallback=loginuser&callbackAction=addToFav&domaindest=reference.com"+"&logindest="+ enc(window.location)) ;
+}
+</script>
+
+<div>
+<div class="sep_top shd_hdr ">
+<div class="shortsrcname">Collins</div>
+<div class="KonaBody" style="">
+<div class="lunatext results_content">
+<div class="dicTl">World English Dictionary</div>
+<table border="0" width="100%" cellspacing="4" cellpadding="3">
+<tr valign="top" class="tr1"><td colspan="2" class="td1"><b>take</b><sup><b>1</b></sup> (teɪk) <a class="questionmark" href="/help/luna/IPA_pron_key.html" target="_blank" target="_blank"></a></td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr2"><td colspan="2" class="td2">&mdash;<b><i>vb</i></b> (often foll by <i>from</i>) , <b>takes</b>, <b>taking</b>, <b>took</b>, <b>taken</b></td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">1.&nbsp;&nbsp;</td><td class="td3n2">(<i>also intr</i>) to gain possession of (something) by force or effort</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">2.&nbsp;&nbsp;</td><td class="td3n2">to appropriate or steal: <i>to take other people's belongings</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">3.&nbsp;&nbsp;</td><td class="td3n2">to receive or accept into a relationship with oneself: <i>to take a wife</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">4.&nbsp;&nbsp;</td><td class="td3n2">to pay for or buy</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">5.&nbsp;&nbsp;</td><td class="td3n2">to rent or lease: <i>to take a flat in town</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">6.&nbsp;&nbsp;</td><td class="td3n2">to receive or obtain by regular payment: <i>we take a newspaper every day</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">7.&nbsp;&nbsp;</td><td class="td3n2">to obtain by competing for; win: <i>to take first prize</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">8.&nbsp;&nbsp;</td><td class="td3n2">to obtain or derive from a source: <i>he took his good manners from his older brother</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">9.&nbsp;&nbsp;</td><td class="td3n2">to assume the obligations of: <i>to take office</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">10.&nbsp;&nbsp;</td><td class="td3n2">to endure, esp with fortitude: <i>to take punishment</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">11.&nbsp;&nbsp;</td><td class="td3n2">to adopt as a symbol of duty, obligation, etc: <i>to take the veil</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">12.&nbsp;&nbsp;</td><td class="td3n2">to receive or react to in a specified way: <i>she took the news very well</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">13.&nbsp;&nbsp;</td><td class="td3n2">to adopt as one's own: <i>to take someone's part in a quarrel</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">14.&nbsp;&nbsp;</td><td class="td3n2">to receive and make use of: <i>to take advice</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">15.&nbsp;&nbsp;</td><td class="td3n2">to receive into the body, as by eating, inhaling, etc: <i>to take a breath</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">16.&nbsp;&nbsp;</td><td class="td3n2">to eat, drink, etc, esp habitually: <i>to take sugar in one's tea</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">17.&nbsp;&nbsp;</td><td class="td3n2">to have or be engaged in for one's benefit or use: <i>to take a rest</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">18.&nbsp;&nbsp;</td><td class="td3n2">to work at or study: <i>to take economics at college</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">19.&nbsp;&nbsp;</td><td class="td3n2">to make, do, or perform (an action): <i>to take a leap</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">20.&nbsp;&nbsp;</td><td class="td3n2">to make use of: <i>to take an opportunity</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">21.&nbsp;&nbsp;</td><td class="td3n2">to put into effect; adopt: <i>to take measures</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">22.&nbsp;&nbsp;</td><td class="td3n2">(<i>also intr</i>) to make a photograph of or admit of being photographed</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">23.&nbsp;&nbsp;</td><td class="td3n2">to act or perform: <i>she takes the part of the Queen</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">24.&nbsp;&nbsp;</td><td class="td3n2">to write down or copy: <i>to take notes</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">25.&nbsp;&nbsp;</td><td class="td3n2">to experience or feel: <i>to take pride in one's appearance</i>; <i>to take offence</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">26.&nbsp;&nbsp;</td><td class="td3n2">to consider, believe, or regard: <i>I take him to be honest</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">27.&nbsp;&nbsp;</td><td class="td3n2">to consider or accept as valid: <i>I take your point</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">28.&nbsp;&nbsp;</td><td class="td3n2">to hold or maintain in the mind: <i>his father took a dim view of his career</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">29.&nbsp;&nbsp;</td><td class="td3n2">to deal or contend with: <i>the tennis champion took her opponent's best strokes without difficulty</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">30.&nbsp;&nbsp;</td><td class="td3n2">to use as a particular case: <i>take hotels for example</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">31.&nbsp;&nbsp;</td><td class="td3n2">to diminish or detract: <i>the actor's bad performance took from the effect of the play</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">32.&nbsp;&nbsp;</td><td class="td3n2">to confront successfully: <i>the horse took the jump at the third attempt</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">33.&nbsp;&nbsp;</td><td class="td3n2">(<i>intr</i>) to have or produce the intended effect; succeed: <i>her vaccination took</i>; <i>the glue is taking well</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">34.&nbsp;&nbsp;</td><td class="td3n2">(<i>intr</i>) (of seeds, plants, etc) to start growing successfully</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">35.&nbsp;&nbsp;</td><td class="td3n2">to aim or direct: <i>he took a swipe at his opponent</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">36.&nbsp;&nbsp;</td><td class="td3n2">to deal a blow to in a specified place</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">37.&nbsp;&nbsp;</td><td class="td3n2"><i>archaic</i> to have sexual intercourse with</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">38.&nbsp;&nbsp;</td><td class="td3n2">to carry off or remove from a place</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">39.&nbsp;&nbsp;</td><td class="td3n2">to carry along or have in one's possession: <i>don't forget to take your umbrella</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">40.&nbsp;&nbsp;</td><td class="td3n2">to convey or transport: <i>the train will take us out of the city</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">41.&nbsp;&nbsp;</td><td class="td3n2">to use as a means of transport: <i>I shall take the bus</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">42.&nbsp;&nbsp;</td><td class="td3n2">to conduct or lead: <i>this road takes you to the station</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">43.&nbsp;&nbsp;</td><td class="td3n2">to escort or accompany: <i>may I take you out tonight?</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">44.&nbsp;&nbsp;</td><td class="td3n2">to bring or deliver to a state, position, etc: <i>his ability took him to the forefront in his field</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">45.&nbsp;&nbsp;</td><td class="td3n2">to go to look for; seek: <i>to take cover</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">46.&nbsp;&nbsp;</td><td class="td3n2">to ascertain or determine by measuring, computing, etc: <i>to take a pulse</i>; <i>take a reading from a dial</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">47.&nbsp;&nbsp;</td><td class="td3n2">(<i>intr</i>) (of a mechanism) to catch or engage (a part)</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">48.&nbsp;&nbsp;</td><td class="td3n2">to put an end to; destroy: <i>she took her own life</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">49.&nbsp;&nbsp;</td><td class="td3n2">to come upon unexpectedly; discover</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">50.&nbsp;&nbsp;</td><td class="td3n2">to contract: <i>he took a chill</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">51.&nbsp;&nbsp;</td><td class="td3n2">to affect or attack: <i>the fever took him one night</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">52.&nbsp;&nbsp;</td><td class="td3n2">(<i>copula</i>) to become suddenly or be rendered (ill): <i>he took sick</i>; <i>he was taken sick</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">53.&nbsp;&nbsp;</td><td class="td3n2">(<i>also intr</i>) to absorb or become absorbed by something: <i>to take a polish</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">54.&nbsp;&nbsp;</td><td class="td3n2">(<i>usually passive</i>) to charm or captivate: <i>she was very taken with the puppy</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">55.&nbsp;&nbsp;</td><td class="td3n2">(<i>intr</i>) to be or become popular; win favour</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">56.&nbsp;&nbsp;</td><td class="td3n2">to require or need: <i>this job will take a lot of attention</i>; <i>that task will take all your time</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">57.&nbsp;&nbsp;</td><td class="td3n2">to subtract or deduct: <i>to take six from ten leaves four</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">58.&nbsp;&nbsp;</td><td class="td3n2">to hold or contain: <i>the suitcase won't take all your clothes</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">59.&nbsp;&nbsp;</td><td class="td3n2">to quote or copy: <i>he has taken several paragraphs from the book for his essay</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">60.&nbsp;&nbsp;</td><td class="td3n2">to proceed to occupy: <i>to take a seat</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">61.&nbsp;&nbsp;</td><td class="td3n2">(<i><r>often foll by</r> to</i>) to use or employ: <i>to take steps to ascertain the answer</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">62.&nbsp;&nbsp;</td><td class="td3n2">to win or capture (a trick, counter, piece, etc)</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">63.&nbsp;&nbsp;</td><td class="td3n2">(<i>also intr</i>) to catch as prey or catch prey</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">64.&nbsp;&nbsp;</td><td class="td3n2"><i>slang</i> to cheat, deceive, or victimize</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">65.&nbsp;&nbsp;</td><td class="td3n2"><b>take amiss</b> to be annoyed or offended by</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">66.&nbsp;&nbsp;</td><td class="td3n2"><b>take at one's word</b> See <a id="dic_result" href="http://dictionary.reference.com/browse/word">word</a> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">67.&nbsp;&nbsp;</td><td class="td3n2"><b>take care</b> to pay attention; be heedful</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">68.&nbsp;&nbsp;</td><td class="td3n2"><b>take care of</b> to assume responsibility for; look after</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">69.&nbsp;&nbsp;</td><td class="td3n2"><b>take chances</b>, <b>take a chance</b> to behave in a risky manner</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">70.&nbsp;&nbsp;</td><td class="td3n2"><i>informal</i> <i>chiefly</i> (<i>US</i>), (<i>Canadian</i>) <b>take five</b> to take a break of five minutes</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">71.&nbsp;&nbsp;</td><td class="td3n2"><b>take heart</b> to become encouraged</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">72.&nbsp;&nbsp;</td><td class="td3n2"><b>take it</b> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">a.&nbsp;&nbsp;to assume; believe: <i>I take it you'll be back later</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">b.&nbsp;&nbsp;<i>informal</i> to stand up to or endure criticism, abuse, harsh treatment, etc</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">73.&nbsp;&nbsp;</td><td class="td3n2"><b>take one's time</b> to use as much time as is needed; not rush</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">74.&nbsp;&nbsp;</td><td class="td3n2"><b>take place</b> to happen or occur</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">75.&nbsp;&nbsp;</td><td class="td3n2"><b>take someone's name in vain</b> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">a.&nbsp;&nbsp;to use a name, esp of God, disrespectfully or irreverently</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">b.&nbsp;&nbsp;<i>jocular</i> to say (someone's) name</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">76.&nbsp;&nbsp;</td><td class="td3n2"><b>take something upon oneself</b> to assume the right to do or responsibility for (something)</td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr2"><td colspan="2" class="td2">&mdash;<b><i>n</i></b> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">77.&nbsp;&nbsp;</td><td class="td3n2">the act of taking</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">78.&nbsp;&nbsp;</td><td class="td3n2">the number of quarry killed or captured on one occasion</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">79.&nbsp;&nbsp;</td><td class="td3n2"><i>informal</i> <i>chiefly</i> (<i>US</i>) the amount of anything taken, esp money</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">80.&nbsp;&nbsp;</td><td class="td3n2"><i>films, music</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">a.&nbsp;&nbsp;one of a series of recordings from which the best will be selected for release</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">b.&nbsp;&nbsp;the process of taking one such recording</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">c.&nbsp;&nbsp;a scene or part of a scene photographed without interruption</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">81.&nbsp;&nbsp;</td><td class="td3n2"><i>informal</i> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">a.&nbsp;&nbsp;any objective indication of a successful vaccination, such as a local skin reaction</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">&nbsp;</td><td class="td3n2">b.&nbsp;&nbsp;a successful skin graft</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">82.&nbsp;&nbsp;</td><td class="td3n2"><i>printing</i> a part of an article, story, etc, given to a compositor or keyboard operator for setting in type</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">83.&nbsp;&nbsp;</td><td class="td3n2"><i>informal</i> a try or attempt</td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1">84.&nbsp;&nbsp;</td><td class="td3n2"><i>informal</i> <i>chiefly</i> (<i>US</i>) a version or interpretation: <i>Cronenberg's harsh take on the sci-fi story</i> </td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr5"><td colspan="2" class="td5">[Old English <i>tacan,</i> from Old Norse <i>taka;</i> related to Gothic <i>tekan</i> to touch]</td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr1"><td colspan="2" class="td1"><b>'takable</b><sup><b>1</b></sup></td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr2"><td colspan="2" class="td2">&mdash;<b><i>adj</i></b> </td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr1"><td colspan="2" class="td1"><b>'takeable</b><sup><b>1</b></sup></td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr2"><td colspan="2" class="td2">&mdash;<b><i>adj</i></b> </td></tr>
+</table>
+<br />
+</div>
+</div>
+</div>
+<div class="citesourceseperator"></div>
+<div class="sep_top1 shd_hdr1">
+<div class="KonaBody" style="">
+<div class="lunatext results_content">
+<table border="0" width="100%" cellspacing="4" cellpadding="3">
+<tr valign="top" class="tr1"><td colspan="2" class="td1"><b>take</b><sup><b>2</b></sup> (ˈtɑːkɪ) <a class="questionmark" href="/help/luna/IPA_pron_key.html" target="_blank" target="_blank"></a></td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr2"><td colspan="2" class="td2">&mdash;<b><i>n</i></b> </td></tr>
+<tr valign="top" class="tr3"><td align="right" width="1%" class="td3n1"></td><td class="td3n2">(<i>NZ</i>) a topic or cause</td></tr>
+<tr valign="top"><td colspan="2">&nbsp;</td></tr>
+<tr valign="top" class="tr5"><td colspan="2" class="td5">[Māori]</td></tr>
+</table>
+<br />
+</div>
+</div>
+</div>
+<div class="rcr">
+Collins English Dictionary - Complete & Unabridged 10th Edition<br />2009 © William Collins Sons & Co. Ltd. 1979, 1986 © HarperCollins<br />Publishers 1998, 2000, 2003, 2005, 2006, 2007, 2009
+<br/>
+<a rel="nofollow" href='/cite.html?qh=take&ia=ced' >Cite This Source</a>
+</div>
+<div class="sep_top bottomAd" align="center">
+<div id='ad_bottom_300x249' class='box-ad ' >
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('ad_bottom_300x249'); });
+</script>
+</div>
+</div>
+<div id="wordorgtop"></div>
+<div class="sep_top shd_hdr ">
+<div class="shortsrcname">Etymonline</div>
+<div class="KonaBody" style="">
+<div class="lunatext results_content">
+<div class="dicTl">Word Origin & History</div>
+<br/><span class="me">take</span><br /><div class="body">late O.E. tacan, from a N.Gmc. source (e.g. O.N. taka "take, grasp, lay hold," past tense tok, pp. tekinn; Swed. ta, pp. tagit), from P.Gmc. *t&aelig;kanan (cf. M.L.G. tacken, M.Du. taken, Goth. tekan "to touch"), of uncertain origin, perhaps originally meaning "to touch." Gradually replaced M.E. nimen </div><a class="more"></a><span class="moreun"><div class="body">as the verb for "to take," from O.E. niman, from the usual W.Gmc. *nem- root (cf. Ger. nehmen, Du. nemen), also of unknown origin. OED calls it "one of the elemental words of the language;" take up alone has 55 varieties of meaning in that dictionary. Basic sense is "to lay hold of," which evolved to "accept, receive" (as in take my advice) c.1200; "absorb" (she can take a punch) c.1200; "to choose, select" (take the long way home) late 13c.; "to make, obtain" (take a shower) late 14c.; "to become affected by" (take sick) c.1300. Take five is 1929, from the approximate time it takes to smoke a cigarette. Take it easy first recorded 1880; take the plunge "act decisively" is from 1876; take the rap "accept (undeserved) punishment" is from 1930. Phrase take it or leave it is recorded from 1897.</div><div class="etymon_entry"><br/><span class="me">take</span><br /><div class="body">1654, "that which is taken in payment," from <a id="dic_result" href="/browse/take">take</a> (v.). Sense of "money taken in" by a single performance, etc., is from 1931. Movie-making sense is recorded from 1927. Criminal sense of "money acquired by theft" is from 1888. The verb sense of "to cheat, defraud" is from 1920. </div><div class="body">On the take "amenable to bribery" is from 1930.</div></div><a class="less"></a></span>
+</div>
+</div>
+</div>
+<div class="rcr">
+Online Etymology Dictionary, © 2010 Douglas Harper
+<br/>
+<a rel="nofollow" href='/cite.html?qh=take&ia=etymon' >Cite This Source</a>
+</div>
+<div class="sep_top shd_hdr ">
+<div class="shortsrcname">American Heritage</div>
+<div class="KonaBody" style="">
+<div class="lunatext results_content">
+<div class="dicTl">Idioms & Phrases</div>
+<p><b>take</b> </p><p>In addition to the idioms beginning with <a id="dic_result" href="/browse/take">take</a>, also see at (take) pains; devil take the hindmost; <a id="dic_result" href="/browse/double%20take">double take</a>; <a id="dic_result" href="/browse/give%20and%20take">give and take</a>; <a id="dic_result" href="/browse/give%20or%20take">give or take</a>; go to (take) the trouble; have (take) a crack at; have (take) a fit; in (take) effect; (take) in good part; in tow, take; <a id="dic_result" href="/browse/it%20takes%20all%20sorts">it takes all sorts</a>; <a id="dic_result" href="/browse/it%20takes%20getting%20used%20to">it takes getting used to</a>; <a id="dic_result" href="/browse/it%20takes%20one%20to%20know%20one">it takes one to know one</a>; (take) off one's hands; (take) on faith; <a id="dic_result" href="/browse/on%20the%20take">on the take</a>; <a id="dic_result" href="/browse/pay%20your%20money%20and%20take%20your%20choice">pay your money and take your choice</a>; pride oneself (take pride in); (take a) rain check; <a id="dic_result" href="/browse/sit%20up%20and%20take%20notice">sit up and take notice</a>; that's (takes care of) that; what do you take me for; <a id="dic_result" href="/browse/what%20it%20takes">what it takes</a>; (take) with a grain of salt; you can lead (take) a horse to water; <a id="dic_result" href="/browse/you%20can't%20take%20it%20with%20you">you can't take it with you</a>.</p>
+</div>
+</div>
+</div>
+<div class="rcr">
+The American Heritage® Dictionary of Idioms by Christine Ammer.<br />Copyright © 1997. Published by Houghton Mifflin.
+<br/>
+<a rel="nofollow" href='/cite.html?qh=take&ia=ahdi' >Cite This Source</a>
+</div>
+</div>
+<script>
+_init_luna();
+show_sp();
+</script>
+<script type="text/javascript">
+</script>
+
+<script type="text/javascript" language="JavaScript">
+_init_luna();
+show_sp();
+</script>
+
+<script type="text/javascript">
+if(ask.dict.isHotWordEnabled){
+ask.dict.enableHotwordLogging = true;
+}
+</script>
+<style type="text/css">
+/*This is done for enabling favorites on page load*/
+#fav,#nonfav{
+display:inline-block;
+}
+._vtad{
+border-top:1px solid #E4E4E4;
+}
+.slL {
+cursor: pointer;
+}
+#macnt
+{
+height: 22px;
+padding-top: 2px;
+}
+#Headserp
+{
+margin-top: 8px;
+}
+.the_content #Headserp{
+margin-top:0px;
+}
+</style>
+</div>
+</div>
+
+<div id="rightRail">
+<!--
+word Dynamo Module
+-->
+<div id="exsntBlock">
+<div id="exsntHdg">Example sentences </div>
+<div class="exsentences"><span>Boards need to take responsibility to create a culture that serves to check</span><div class="sentelipsis"></div>&nbsp;<span class="sentcont"> risk effectively.</span></div>
+<div class="exsentences"><span>More students seek counseling and take psychiatric medication.</span></div>
+<div class="exsentences"><span>In the digital age it is daft to take months or even years to get a book to</span><div class="sentelipsis"></div>&nbsp;<span class="sentcont"> market.</span></div>
+<div class="exsentences"><span>One solution to this learning challenge is to turn the task into a game in</span><div class="sentelipsis"></div>&nbsp;<span class="sentcont"> which students take charge of their own learning.</span></div>
+<div class="moresent" style="display:none;">
+<div class="exsentences">What to do if your mattress company does not take your old mattress with them when you buy a new one.</div>
+</div>
+<div class="moresent" style="display:none;">
+<div class="exsentences">While you can take a basic guided tour of the peninsula, my self-guided tour makes it unnecessary.</div>
+</div>
+<div class="moresent" style="display:none;">
+<div class="exsentences">Take full advantage of scenic views in a hillside backyard.</div>
+</div>
+<div class="moresent" style="display:none;">
+<div class="exsentences">The overwhelming majority of recreational golfers do not take lessons.</div>
+</div>
+<div class="moresent" style="display:none;">
+<div class="exsentences">Take the high road in all discussions with prospective employers, and you should be able to land on your feet.</div>
+</div>
+<div class="moresent" style="display:none;">
+<div class="exsentences">Their underbellies take on a yellowish hue from the millions of microorganisms that take up residence in their skin.</div>
+</div>
+<a class="more"></a>
+<a class="less" style="display: none;"></a>
+</div>
+<!--
+Display ads1 rightrail Module
+-->
+<div style="margin-top:15px;text-align:center;">
+<div id='ad_top_300x250_1' class='box-ad ' >
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('ad_top_300x250_1'); });
+</script>
+</div>
+</div>
+<!--
+Relatedwords Slang rightrail Module
+-->
+<div id="wrapserp" ><a id="serppremium" onmousedown="return pk(this,{io:0,m:'prem300',ec:1,lk:'p78uj7'})" href="http://app.dictionary.com/signup/premium?logindest=http%3A%2F%2Fdictionary.reference.com%2Fbrowse%2Ftake">Remove ads like these. Upgrade now!</a></div>
+<div id="relatedwords">
+<div class="rwh">Related Words</div>
+<div class="fla">
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'0',m:'rword'});" href="http://dictionary.reference.com/browse/care">care</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'1',m:'rword'});" href="http://dictionary.reference.com/browse/assume">assume</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'2',m:'rword'});" href="http://dictionary.reference.com/browse/hand">hand</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'3',m:'rword'});" href="http://dictionary.reference.com/browse/seize">seize</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'4',m:'rword'});" href="http://dictionary.reference.com/browse/draw">draw</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'5',m:'rword'});" href="http://dictionary.reference.com/browse/resume">resume</a>
+</div>
+<div class="flav">
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'6',m:'rword'});" href="http://dictionary.reference.com/browse/occupy">occupy</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'7',m:'rword'});" href="http://dictionary.reference.com/browse/pick">pick</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'8',m:'rword'});" href="http://dictionary.reference.com/browse/stand">stand</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'9',m:'rword'});" href="http://dictionary.reference.com/browse/carry">carry</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'10',m:'rword'});" href="http://dictionary.reference.com/browse/catch">catch</a>
+<a class="rey" onmousedown="return pk(this,{lk:'2ksc1p',io:'11',m:'rword'});" href="http://dictionary.reference.com/browse/give">give</a>
+</div>
+<div>
+<span class= "rlmr"><a class="nmore" onmousedown="return pk(this,{lk:'bwzk7c',io:'0',m:'rlwmo'})" href="http://dictionary.reference.com/reverseresults?q=take&db=reverse">MORE</a></span>
+</div>
+</div>
+<!-- slang--->
+<!--
+Idioms rightrail Module
+-->
+<div id="idbox">
+<div class="ihdr">Idioms & Phrases</div>
+<div class="idl">
+<div class="idh"><a class="rey" href="http://dictionary.reference.com/idioms/take" onmousedown="return pk(this,{lk:'gr62hm',io:'0',m:'idim'});"><b>take</b></a></div>
+<div class="idh"><a class="rey" href="http://dictionary.reference.com/idioms/at (take) pains" onmousedown="return pk(this,{lk:'gr62hm',io:'1',m:'idim'});">at (<b>take</b>) pains</a></div>
+<div class="idh"><a class="rey" href="http://dictionary.reference.com/idioms/devil take the hindmost" onmousedown="return pk(this,{lk:'gr62hm',io:'2',m:'idim'});">devil <b>take</b> the hindmost</a></div>
+<div class="idh"><a class="rey" href="http://dictionary.reference.com/idioms/double take" onmousedown="return pk(this,{lk:'gr62hm',io:'3',m:'idim'});">double <b>take</b></a></div>
+<div class="idh"><a class="rey" href="http://dictionary.reference.com/idioms/give and take" onmousedown="return pk(this,{lk:'gr62hm',io:'4',m:'idim'});">give and <b>take</b></a></div>
+<div class="snm">
+<span class= "snmr"><a class="nmore" href=" http://dictionary.reference.com/idioms/take" onmousedown="return pk(this,{lk:'rezse1',io:'0',m:'idimo'})">MORE</a></span>
+</div>
+</div>
+</div>
+<!--
+Images Slider Module
+-->
+<!--
+Quotes Module
+-->
+<div id="quotesbox">
+<div class="qbox">
+<div class="qhdr">Matching Quote</div>
+<div class="qquote">
+<a href="http://quotes.dictionary.com/I_came_here_to_take_my_son_home" onmousedown="return pk(this,{lk:'k3p087',io:'0',m:'rquot'})">"I came here to take my son home and I realized he already is home."</a>
+</div>
+<div class="qblw">
+<div>
+<span><a class="qtn" href="http://quotes.dictionary.com/author/Robert+Benton" onmousedown="return pk(this,{lk:'rc2wb4',io:'0',m:'auth'})">-Robert Benton</a></span>
+<span class="qautia"> </span>
+<div class= "qsnmr"><a class="nmore" href="http://quotes.dictionary.com/search/take" onmousedown="return pk(this,{lk:'j2hdmf',io:'0',m:'more'})">MORE</a></div>
+</div>
+</div>
+</div>
+</div>
+<div style="top:200px;position:relative;height:450px;">
+<div id="stickyrail-anchor"></div>
+<div id="stickyrail_ad">
+<script type="text/javascript">
+googletag.cmd.push(function() {
+googletag.display('stickyrail_ad');
+});
+$j("#rightRail").css("border-bottom","none");
+</script>
+</div>
+<style>
+#stickyrail_ad {
+padding-top:30px;
+}
+#stickyrail_ad.stick {
+position: fixed;
+top: 0px;
+z-index: 10000;
+}
+</style>
+<script type="text/javascript">
+function sticky_relocate() {
+var window_top = $j(window).scrollTop();
+var div_top = $j('#stickyrail-anchor').offset().top;
+if (window_top > div_top)
+$j('#stickyrail_ad').addClass('stick')
+else
+$j('#stickyrail_ad').removeClass('stick');
+}
+$j(window).scroll(function(){
+sticky_relocate();
+});
+sticky_relocate();
+</script>
+</div>
+</div>
+</div><!--reults LD2-->
+</div> <!--results for new serp -->
+<style type="text/css">
+.nmorescr,.nmorescr:visited,.nmore, .nmore:visited,a.more, a.more:hover, a.less, a.less:hover{
+font-weight:normal;
+}
+</style>
+
+<div id="lr">
+
+<div class="rbox">
+<div class="rboxborder">
+<div class="hd">Related Searches</div>
+<div id="narrow">
+<div id="sM">
+<div id="s0" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/related/Take+Away?qsrc=2892&l=dir&o=100101" >Take away</a></div>
+<div id="s1" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/related/Take+Test?qsrc=2892&l=dir&o=100101" >Take test</a></div>
+<div id="s2" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/related/Take+a+Bow+Music+Video?qsrc=2892&l=dir&o=100101" >Take a bow music video</a></div>
+<div id="s3" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/related/Take+Part?qsrc=2892&l=dir&o=100101" >Take part</a></div>
+<div id="s4" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/related/Bring+Vs+Take?qsrc=2892&l=dir&o=100101" >Bring vs take</a></div>
+<div id="s5" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/related/Take+Charge+America?qsrc=2892&l=dir&o=100101" >Take charge america</a></div>
+<div id="s6" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/related/Take+That+the+Circus?qsrc=2892&l=dir&o=100101" >Take that the circus</a></div>
+</div>
+<div id="aM">
+<div id="a0" class="elip eD dC"><a rel="nofollow" class="ey dC" href="http://ask.reference.com/web?q=Taken&qsrc=2892&l=dir&o=100101" >Taken</a></div>
+</div>
+</div>
+</div>
+</div>
+<script >
+pklogRelated("sM",{lk:'5k1a4a',io:'6',m:'drs'},"s");
+pklogRelated("aM",{lk:'vfp1o9',io:'7',m:'r1'},"a") ;
+</script>
+
+<div class="nbox ">
+<div class="hd"><span >Nearby Words</span></div>
+<div class="pt10" onclick="ask.dict.nearby.scrollUp()">
+</div>
+<div id="nBL">
+<div id="nB0" class="elip eD"><a href="/browse/tajine?qsrc=2446" >tajine</a></div>
+<div id="nB1" class="elip eD"><a href="/browse/tajo?qsrc=2446" >tajo</a></div>
+<div id="nB2" class="elip eD"><a href="/browse/tajrish?qsrc=2446" >tajrish</a></div>
+<div id="nB3" class="elip eD"><a href="/browse/taka?qsrc=2446" >taka</a></div>
+<div id="nB4" class="elip eD"><a href="/browse/takable?qsrc=2446" >takable</a></div>
+<div id="nB5" class="elip eD"><a href="/browse/takahara%27s+disease?qsrc=2446" >takahara's disease</a></div>
+<div id="nB6" class="elip eD"><a href="/browse/takahe?qsrc=2446" >takahe</a></div>
+<div id="nB7" class="elip eD"><a href="/browse/takakkaw?qsrc=2446" >takakkaw</a></div>
+<div id="nB8" class="elip eD"><a href="/browse/takamatsu?qsrc=2446" >takamatsu</a></div>
+<div id="nB9" class="elip eD"><a href="/browse/takamine%2C+jokichi?qsrc=2446" >takamine, jokichi</a></div>
+<div id="nB10" class="elip eD"><a href="/browse/takao?qsrc=2446" >takao</a></div>
+<div id="nB11" class="elip eD"><a href="/browse/takaoka?qsrc=2446" >takaoka</a></div>
+<div id="nB12" class="elip eD"><a href="/browse/takarazuka?qsrc=2446" >takarazuka</a></div>
+<div id="nB13" class="elip eD"><a href="/browse/takasago?qsrc=2446" >takasago</a></div>
+<div id="nB14" class="elip eD"><a href="/browse/takasaki?qsrc=2446" >takasaki</a></div>
+<div id="nB15" class="elip eD"><a href="/browse/takatsuki?qsrc=2446" >takatsuki</a></div>
+<div id="nB16" class="elip eD"><a href="/browse/takayama?qsrc=2446" >takayama</a></div>
+<div id="nB17" class="elip eD"><a href="/browse/takayasu%27s+arteritis?qsrc=2446" >takayasu's arteritis</a></div>
+<div id="nB18" class="elip eD"><a href="/browse/takayasu%27s+disease?qsrc=2446" >takayasu's disease</a></div>
+<div id="nB19" class="elip eD"><a href="/browse/takayasu%27s+syndrome?qsrc=2446" >takayasu's syndrome</a></div>
+<div id="nB20" class="elip eD "><a href="/browse/take?qsrc=2446" class="nearByCurr dicColor" >take</a></div>
+<div id="nB21" class="elip eD"><a href="/browse/take+a+back+seat?qsrc=2446" >take a back seat</a></div>
+<div id="nB22" class="elip eD"><a href="/browse/take+a+back-seat?qsrc=2446" >take a back-seat</a></div>
+<div id="nB23" class="elip eD"><a href="/browse/take+a+backseat?qsrc=2446" >take a backseat</a></div>
+<div id="nB24" class="elip eD"><a href="/browse/take+a+bath?qsrc=2446" >take a bath</a></div>
+<div id="nB25" class="elip eD"><a href="/browse/take+a+bow?qsrc=2446" >take a bow</a></div>
+<div id="nB26" class="elip eD"><a href="/browse/take+a+break?qsrc=2446" >take a break</a></div>
+<div id="nB27" class="elip eD"><a href="/browse/take+a+breath?qsrc=2446" >take a breath</a></div>
+<div id="nB28" class="elip eD"><a href="/browse/take+a+call?qsrc=2446" >take a call</a></div>
+<div id="nB29" class="elip eD"><a href="/browse/take+a+chance?qsrc=2446" >take a chance</a></div>
+<div id="nB30" class="elip eD"><a href="/browse/take+a+chill+pill?qsrc=2446" >take a chill pill</a></div>
+<div id="nB31" class="elip eD"><a href="/browse/take+a+chill+pill%21?qsrc=2446" >take a chill pill!</a></div>
+<div id="nB32" class="elip eD"><a href="/browse/take+a+collection?qsrc=2446" >take a collection</a></div>
+<div id="nB33" class="elip eD"><a href="/browse/take+a+crack+at?qsrc=2446" >take a crack at</a></div>
+<div id="nB34" class="elip eD"><a href="/browse/take+a+crap?qsrc=2446" >take a crap</a></div>
+<div id="nB35" class="elip eD"><a href="/browse/take+a+dare?qsrc=2446" >take a dare</a></div>
+<div id="nB36" class="elip eD"><a href="/browse/take+a+dim+view+of?qsrc=2446" >take a dim view of</a></div>
+<div id="nB37" class="elip eD"><a href="/browse/take+a+dive?qsrc=2446" >take a dive</a></div>
+<div id="nB38" class="elip eD"><a href="/browse/take+a+fall?qsrc=2446" >take a fall</a></div>
+<div id="nB39" class="elip eD"><a href="/browse/take+a+fancy+to?qsrc=2446" >take a fancy to</a></div>
+<div id="nB40" class="elip eD"><a href="/browse/take+a+firm+stand?qsrc=2446" >take a firm stand</a></div>
+<script >
+ask.dict.nearby.totalItems=41;
+ask.dict.nearby.centerCurrent('20');
+pklog("nBL",{lk:'1zv0ht',io:'0',m:'nrb'},"nB")
+</script>
+</div>
+<div class="pt12" onclick="ask.dict.nearby.scrollDown()">
+</div>
+</div>
+
+
+<div class="box sbox">
+<div class="hd">Synonyms</div>
+<div id="synonym">
+<div id="sY0" class="sE"><a class="ey dC" href="/browse/necessitate">necessitate</a></div>
+<div id="sY1" class="sE"><a class="ey dC" href="/browse/appropriate">appropriate</a></div>
+<div id="sY2" class="sE"><a class="ey dC" href="/browse/accommodate">accommodate</a></div>
+<div id="sY3" class="sE"><a class="ey dC" href="/browse/experience">experience</a></div>
+<div id="sY4" class="sE"><a class="ey dC" href="/browse/go+through">go through</a></div>
+<div id="sY5" class="sE"><a class="ey dC" href="/browse/comprehend">comprehend</a></div>
+<div id="sY6" class="sE"><a class="ey dC" href="/browse/eliminate">eliminate</a></div>
+</div>
+<div>
+<span class= "synmr"><a class="nmore" href="http://thesaurus.com/browse/take" onmousedown="return pk(this,{lk:'9pr7mv',io:'0',m:'synmo'})">MORE</a></span>
+<a href="http://thesaurus.com/browse/take" onmousedown="return pk(this,{lk:'hsxjhw',io:'0',m:'synth'})"><span class="slogo"></span></a>
+</div>
+</div>
+<script >
+pklog("synonym",{lk:'yikftd',io:'6',m:'sy'},"sY");
+</script>
+<!--
+In-house ads Module
+-->
+<!--
+Sky ad Module
+-->
+<div class="lr_skyad">
+<div id='ad_top_160x600' class='sykscraper-ad ' >
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('ad_top_160x600'); });
+</script>
+</div>
+</div>
+
+<div id="ltm"></div>
+</div>
+<script type="text/javascript">
+var logStickyFooter = false;
+$j = jQuery;
+var eventType = "mousedown";
+var popup = $j("#popup");
+$j('body').delegate('#favLink1','mousedown',function(){
+location.href = "http://app.dictionary.com/favorites";
+}
+);
+$j(document).bind(
+eventType,
+function(){
+popup.hide();
+}
+);
+_favoriteQuery="take";
+function redirectToAppcoreForSuperSession(){
+locationString = window.location.toString();
+if(Cookie.isEnabled()){
+Cookie.setCookie("fQ", "take", "", "/", "reference.com");
+setDictionaryConsolidatedCookie('fC','*');
+}
+window.location = "http://app.dictionary.com/login/core/?logindest="+enc(locationString);
+}
+function headerChange(){
+var name = appCoreUsername;
+var clklogg = "{lk:'1fk8td',io:'0',m:'hrdupgrd'}";
+if(validDictionaryPremiumUser == "false"){
+$j('#tpnv').html('<a href="http://app.dictionary.com/users/settings">'+'\n'+name+'\n'+'</a><a id="fvlp" style="padding-left:1px;" href="http://app.dictionary.com/favorites"><span class="favL"></span><span id="favLink"></span></a>'+'\n'+'<a href="http://app.dictionary.com/logout?logindest="'+enc(window.location.toString())+' "class="hdrlink" id="favLogout">Log Out </a><a id="upgd" class="hdrlink" href="http://app.dictionary.com/premium?logindest=" onmousedown=\"return pk(this,'+clklogg+')\">Upgrade</a>');
+}
+else if(fbUser=='y'){
+$j('#tpnv').html('<span class="fbuser"></span><span>Hi,</span><a href="http://app.dictionary.com/users/settings">'+'\n'+name+'\n'+'</a><a href="http://app.dictionary.com/favorites"><span class="favL"></span><span id="favLink"></span></a>'+'\n'+'<a href="http://app.dictionary.com/logout?logindest="'+enc(window.location.toString())+' "class="hdrlink" id="favLogout">Log Out</a>');
+}else {
+$j('#tpnv').html('<span>Hi,</span><a href="http://app.dictionary.com/users/settings">'+'\n'+name+'\n'+'</a><a href="http://app.dictionary.com/favorites"><span class="favL"></span><span id="favLink"></span></a>'+'\n'+'<a href="http://app.dictionary.com/logout?logindest="'+enc(window.location.toString())+' "class="hdrlink" id="favLogout">Log Out</a>');
+}
+}
+function makeFooterVisible(){
+var scrollTop = $j(window).scrollTop();
+var bodyHeight = $j('body').height();
+if(scrollTop >= 300 || bodyHeight < 930){
+$j("#sftr").css('visibility','visible');
+if(!logStickyFooter){
+logStickyFooter = true;
+(new Image()).src = 'http://click.reference.com/track/stickyFooter?site=dict&ldid=260:1&pageName=dic';
+}
+}
+}
+$j('body').delegate('#arcnt','mousedown',function(){
+pk(this,{lk:'f1h0vi',io:'0',m:'forec'});
+});
+$j('body').delegate('#afav','mousedown',function(){
+pk(this,{lk:'lwjk79',io:'0',m:'fofav'});
+});
+$j('body').delegate('.ftr_logo','mousedown',function(){
+spk(this,{lk:'28rdro',io:'0',m:'fologo'});
+});
+//variables for fcol
+isspellingProductEmpty = true;
+categoryFordictionaryAd = false
+supressStickyFooterForMobile = false
+$j(window).scroll(function(){
+makeFooterVisible();
+});
+$j(document).ready(function() {
+makeFooterVisible();
+$j("#bfpu>ul>li>.flog").attr("href","http://app.dictionary.com/login/core?source=footer&fnCallback=loginuser&callbackAction=showFavWords&domaindest=reference.com"+"&logindest="+ enc(window.location));
+$j("#brpu>ul>li>.flog").attr("href","http://app.dictionary.com/login/core?source=footer&fnCallback=loginuser&callbackAction=showRecent&domaindest=reference.com"+"&logindest="+ enc(window.location));
+$j("#bfpu>ul>li>.freg").attr("href","http://app.dictionary.com/signup/core?source=footer&fnCallback=loginuser&callbackAction=showFavWords&domaindest=reference.com"+"&logindest="+ enc(window.location));
+$j("#brpu>ul>li>.freg").attr("href","http://app.dictionary.com/signup/core?source=footer&fnCallback=loginuser&callbackAction=showRecent&domaindest=reference.com"+"&logindest="+ enc(window.location));
+registerBottomFavAction();
+});
+</script>
+
+<script type="text/javascript">
+visualThesaurusOnclick();
+if($('macnt') && $('htwt')){
+position = a10.util.findPos($('htwt'));
+y = position[1] + 36;
+$('htwt').style.top = y + 'px';
+}
+</script>
+
+</div> <!--dmain-->
+</center> <!--center that encloses dmain-->
+</div> <!--de-->
+</div> <!--cwrp-->
+<div id="nfotr">
+<div class="brftr" style="padding-bottom:12px;">
+<div class="er">
+<a class="fdic" href="http://content.dictionary.com" onmousedown="pk(this,{lk:'20fqrf',io:'0',m:'fdic',pt:'Footer+Dictionary+Logo'});"></a>
+</div>
+</div>
+<div id="nfr">
+<div id="suggestWord"></div>
+<div class="bllt">Copyright &copy;&nbsp;<span title="Copyright ÃÂ©&nbsp;2014 Dictionary.com, LLC. All rights reserved.">2014 Dictionary.com, LLC</span>. All rights reserved.</div>
+<div class="blf">
+<a target="_top" rel="nofollow" href="http://dictionary.com/about" onmousedown="pk(this,{lk:'y0qla1',io:'0',m:'abt'});">About</a>
+<a target="_top" rel="nofollow" href="http://dictionary.com/privacy" onmousedown="pk(this,{lk:'u2afv2',io:'0',m:'prvplcy'});">PRIVACY POLICY</a>
+<a target="_top" rel="nofollow" href="http://dictionary.com/terms" onmousedown="pk(this,{lk:'cuhe6x',io:'0',m:'trmofuse'});">Terms</a>
+<a target="_top" rel="nofollow" href="http://dictionary.com/careers" rel="nofollow" onmousedown="pk(this,{lk:'pm7vfr',io:'0',m:'careers'});">Careers</a>
+<a target="_top" rel="nofollow" href="http://dictionary.com/mediakit" onmousedown="pk(this,{lk:'bga8c7',io:'0',m:'advtus'});">Advertise with Us</a>
+<a rel="nofollow" onmousedown="pk(this,{lk:'lnnyvs',io:'0',m:'cnt'});" target="_top" href="http://dictionary.com/contact">Contact Us</a>
+<a rel="nofollow" onmousedown="pk(this,{lk:'vaee9s',io:'0',m:'fblg'});" target="_top" href="http://blog.dictionary.com">Our Blog</a>
+<a target="_top" style="cursor:pointer;" onmousedown="suggestWordAction('content.dictionary.com',false)">Suggest a Word</a>
+<a class="npr" target="_top" onmousedown="pk(this,{lk:'ehy6lf',io:'0',m:'help'});" rel="nofollow" href="http://dictionary.com/help">Help</a>
+</div>
+</div>
+</div>
+</div> <!--contouter-->
+<div id="sftr" >
+<div class="ftwr">
+<div class="bfp" id="bfpu">
+<ul>
+<li class="bpt"></li>
+<li style="line-height:14px;">Please <a class='flog'>Login</a> or <a class='freg'>Sign Up</a> to use the Favorites feature</li>
+<li class="bpb"></li>
+</ul>
+</div>
+<div class="bfp" id="brpu">
+<ul>
+<li class="bpt"></li>
+<li style="line-height:14px;">Please <a class='flog'>Login</a> or <a class='freg'>Sign Up</a> to use the Recent Searches feature</li>
+<li class="bpb"></li>
+</ul>
+</div>
+<div class="sftc">
+<a class="ftr_logo" href="#de" ></a>
+<a class="sfav"><div ></div><span>FAVORITES</span></a>
+<a class="srec" onmousedown="showRecentPopUp();"><div ></div><span>RECENT</span></a>
+<form action="/dic" onsubmit="return botformcheck()" class="mnfrm">
+<input size="20" value="search dictionary" id="bq" autoComplete="off" type="text" name="q" onclick="make_blank();"/>
+<button type="submit" value="" ></button>
+</form>
+<div class="ftsp">
+</div>
+<a class="fCol" onclick="expandorCollpase();""></a>
+</div>
+</div>
+</div>
+<script type="text/javascript">
+$j("body").delegate(".srec","mouseenter",function(){showRecentPopUp();
+});
+$j('body').delegate('#sftr','mouseleave',function(){
+$j('#brpu').hide();
+$j('#bfpu').hide();
+});
+</script>
+</div>
+<script>
+var didyouknow = '<div id="macnt" ><span class="wia">Did you know:</span><span class="wiac">When a spot floats across your eye, <a class="lnktxt" href="http:\/\/dictionary.reference.com\/browse\/muscae+volitantes?qsrc=3086" onmousedown="daisyCT(this,53842,{io:0,m:\'alrtM\',ec:1,lk:\'jwc8dj\'})" onclick="closeThis(1,\'amm\')">this is what you should call it.<\/a></span></div>' ;
+if(false){if($j('#diduno')){$j('#diduno').html(didyouknow);}}
+var linkrefer = '<div id="link_to_module" style="top:1558px;"><span class="link_text">Copy & paste this link to your blog or website to reference this page</span><input class="linkbox" onclick="this.select()" value="<a href=http://dictionary.reference.com/browse/take />"></div>';
+if($j('#ltm')){$j('#ltm').html(linkrefer);}
+$j(document).ready(function(){
+playaudio();
+$j(".speaker").mouseenter();
+});
+function suggestWordAction(actionURL,isNoResults){
+if(isNoResults){
+spk(this,{"m":"suggest1","lk":"om4es7",pt:"Suggest a word Noresults"});
+}
+else{
+spk(this,{"m":"suggest2","lk":"e2r2wp",pt:"Suggest a word"});
+}
+document.getElementById("suggestWord").innerHTML = '<form id=\"gen_web\" action=\"http://'+actionURL+'/contact?Suggestion&z=1\" method=\"post\"><input type=\"hidden\" value=\"General Website\" name=\"category\"><input type=\"hidden\" value=\"1\" name=\"z\"><input type=\"hidden\" value=\"1\" name=\"c\"></form>';
+document.getElementById("gen_web").submit();
+}
+</script>
+<script type="text/javascript">
+if(rsSpellSuggest=="false"){
+visualThesauruslazyOnclick();
+}
+else{
+visualThesaurusOnclick();
+}
+</script>
+<script type="text/javascript">
+$j(document).ready(function(){
+if($j('.mdbt')){
+$j(".mdbt").css("display","block");
+}
+});
+function enablemediabuttons(){
+if(typeof (jQuery)!="undefined"){
+$j(".mdbt").hover(function() {
+$j(".mdbt").css("display","none");
+$j(".hdmd").css("display","block");
+});
+$j(".hdfb").append('<iframe src="//www.facebook.com/plugins/like.php?href=http://dictionary.reference.com/browse/take&amp;send=false&amp;ref=dic&amp;layout=button_count&amp;width=450&amp;show_faces=true&amp;action=like&amp;colorscheme=light&amp;font&amp;height=21" scrolling="no" frameborder="0" style="border:none; overflow:hidden; width:86px; height:21px;" allowTransparency="true"></iframe>', function() {
+});
+$j(".hpt").append('<a href="http://pinterest.com/pin/create/button/?url=http://dictionary.reference.com/browse/take%3Fs%3Dt&media=http://userlogos.org/files/logos/Daggles/dictionarycom.png&description=Dictionary_logo&ver=" class="pin-it-button" count-layout="horizontal"><img border="0" src="//assets.pinterest.com/images/PinExt.png" title="Pin It"/></a>',function(){
+});
+}
+}
+</script>
+<script type="text/javascript">
+(function() {
+var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+po.src = 'http://rt.legolas-media.com/lgrt?ci=2&ti=1222&pbi=10791';
+var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+})();
+</script>
+<span style="display:none">
+<script type="text/javascript">
+_qoptions = {
+qacct:"p-51zXP5Cc9sxvQ"
+};
+</script>
+<script type="text/javascript">
+(function() {
+var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+po.src = 'http://pixel.quantserve.com/seg/p-51zXP5Cc9sxvQ.js';
+var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+})();
+</script>
+<script type="text/javascript">
+// DO NOT REMOVE _quantgc function
+function _quantgc(n) {
+var c=document.cookie;if(!c)return '';
+var i=c.indexOf(n+"=");if(-1==i)return '';
+var len=i+n.length+1;
+var end=c.indexOf(";", len);
+return c.substring(len,end<0?c.length:end);
+}
+// Code below is customizable per publisher
+quantSegs = "";
+var _qsegs = _quantgc('__qseg').split('|');
+for (var i=0;i < _qsegs.length;i++) {
+var qArr=_qsegs[i].split("_")
+if (qArr.length>1) { quantSegs += ( qArr[1] + ","); }
+}
+</script>
+</span>
+<span style="display:none">
+<script type="text/javascript">
+_qevents.push( { qacct:"p-51zXP5Cc9sxvQ"} );
+</script>
+<noscript>
+<div style="display: none;"><img src="//pixel.quantserve.com/pixel/p-51zXP5Cc9sxvQ.gif" height="1" width="1" alt="Quantcast"/></div>
+</noscript>
+</span>
+<div id="bkpix" style="display:none"></div>
+<script type="text/javascript">
+(function($){
+$.fn.renderbkpixel = function(){
+ghostwriter(
+"bkpix",
+{
+insertType: "append",
+script: { text: "document.write('<img src=\"http://tags.bluekai.com/site/5397\" width=\"1\" height=\"1\" />');" }
+}
+);
+}
+})(jQuery);
+var bkPixLoaded = false;
+$j(document).ready(function(){
+if(!bkPixLoaded){
+bkPixLoaded = true;
+$j("#bkpix").renderbkpixel();
+}
+});
+</script>
+<div id="quantserve" style="height:0px;width:0px"></div>
+<script type="text/javascript">
+(function($){
+$.fn.quantserve = function(){
+ghostwriter(
+"quantserve",
+{
+insertType: "append",
+script: {src: (document.location.protocol == "https:" ? "https://secure" : "http://edge") + ".quantserve.com/quant.js"}
+}
+);
+}
+})(jQuery);
+jQuery(document).ready(function(){
+jQuery("div[id=quantserve]").quantserve();
+});
+</script>
+<script>
+$j("a").filter(function(index){
+var tmp = this.onmousedown;
+this.onmousedown ='';
+$j(this).mousedown(function(e){
+if(this.href!=='' && (this.href.indexOf("reference.com")== -1)){
+var crossDomain = "thesaurus.com|dictionary.com";
+crossDomain = crossDomain.split('|');
+for(var x in crossDomain){
+if((this.href.indexOf(crossDomain[x]) != -1)){
+var src = readCookie("rh");
+var mobc = readCookie("mw");
+if(mobc!=null){
+src=src + "&m=www";
+}
+this.href = appendReferrerHost(this.href,src);
+var pageTracker = _gat._getTrackerByName(); // Gets the default tracker.
+this.href = pageTracker._getLinkerUrl(this.href);
+}
+}
+}
+if("undefined" != typeof(tmp) && null != tmp && "" != tmp)
+{
+tmp.call(this);
+}
+});
+});
+</script>
+<div id="csPixel" style="display:none">
+<noscript>
+<img src="http://b.scorecardresearch.com/p?c1=2&c2=6034776&cv=2.0&cj=1" style="display:none" width="0" height="0" alt="" />
+</noscript>
+<script type="text/javascript">
+var _comscore = _comscore || [];
+_comscore.push({ c1: "2", c2: "6034776",c3:"",c4:(new String(window.location)).replace(/\?.*$/, "") });
+(function($){
+$.fn.renderscsPixel = function(){
+ghostwriter(
+"csPixel",
+{
+insertType: "append",
+script: { text: "document.write('<script src=\"" + (document.location.protocol == "https:" ? "https://sb" : "http://b")+ ".scorecardresearch.com/beacon.js"+"\"><\/script>');" }
+}
+);
+}
+})(jQuery);
+var csPixelLoaded = false;
+$j(document).ready(function(){
+if(!csPixelLoaded){
+csPixelLoaded = true;
+$j("#csPixel").renderscsPixel();
+}
+});
+</script>
+</div>
+<script type="text/javascript">
+(function($){
+$.fn.rendervisualthesaurus = function(){
+ghostwriter(
+"visual_the",
+{
+insertType: "append",
+script: { text: "document.write('<scr"+"ipt src=\"http://syndication.visualthesaurus.com/ddc/related.js?lang=en&word=take\"><\/scr"+"ipt>');" },
+done:function(){
+$j('#fancybox-left, #fancybox-right').css({'background-image':'url("http://static.sfdict.com/en/i/dictionary/newserp/fancybox_blank.gif")','background-color':'transparent'});
+var images = '';
+var imagesArray = images.split(',');
+$j('.smg').attr('src',imagesArray[0]);
+$j('#imr').css('display','block');
+$j('.qauti').attr('src','http://static.sfdict.com/quotes/images/author_small/default_author.png');
+if(!$j("div").hasClass("_vtad") && daisyPageName == "specialitydictionaries"){
+$j('#visual_the').css('display','none');
+$j(".sep_top").css("border-top","0px");
+}
+}
+}
+);
+}
+})(jQuery);
+jQuery(document).ready(function(){
+if($j("#visual_the").length > 0){
+jQuery("div[id=visual_the]").rendervisualthesaurus();
+}
+});
+</script>
+<script type="text/javascript">
+if(getRadiumCookie()){
+if(rsResultDomain == 'dictionary.reference.com'){
+document.write('<img src="http://rs.gwallet.com/r1/pixel/x4472" width="1" height="1" border="0" alt=""/>');
+}else if(rsResultDomain == 'thesaurus.com'){
+document.write('<img src="http://rs.gwallet.com/r1/pixel/x4473" width="1" height="1" border="0" alt=""/>');
+}else if(rsResultDomain == 'www.reference.com'){
+document.write('<img src="http://rs.gwallet.com/r1/pixel/x4472" width="1" height="1" border="0" alt=""/>');
+}
+}
+</script>
+<script type="text/javascript" lang="javascript">
+function slideshowevent(){
+var img = new Image();
+var url = "http://click.reference.com/track/close?pageName=dic&site=dict";
+img.src = url;
+}
+var modalWindow = {
+parent:"body",
+windowId:null,
+content:null,
+width:null,
+height:null,
+close:function()
+{
+$j(".modal-window").remove();
+$j(".modal-overlay").remove();
+$j('#aud').css("display","inline");
+},
+open:function()
+{
+var modal = "";
+modal += "<div class=\"modal-overlay\"></div>";
+modal += "<div id=\"" + this.windowId + "\" class=\"modal-window\" style=\"width:" + this.width + "px; height:" + this.height + "px; margin-top:-" + (this.height / 2) + "px; margin-left:-" + (this.width / 2) + "px;\">";
+modal += this.content;
+modal += "</div>";
+$j(this.parent).append(modal);
+$j('embed#speaker').attr("wmode","transparent");
+$j('#aud').css("display","none");
+$j(".modal-window").focus();
+$j(".modal-window").append("<a class=\"close-window\"></a>");
+$j(".close-window").click(function(){slideshowevent();modalWindow.close();});
+$j(".modal-overlay").click(function(){slideshowevent();modalWindow.close();});
+}
+};
+var openMyModal = function(source)
+{
+modalWindow.windowId = "myModal";
+modalWindow.width = 975;
+modalWindow.height = 545;
+modalWindow.content = "<iframe id='slidifr' width='975' height='545' frameborder='0' scrolling='no' allowtransparency='true' src='" + source + "'>&lt/iframe>";
+modalWindow.open();
+};
+function slideshowOpen(){
+$j(".icoMr").trigger('click');
+}
+</script>
+<style type="text/css">
+.modal-overlay
+{
+position:fixed;
+top:0;
+right:0;
+bottom:0;
+left:0;
+height:100%;
+width:100%;
+margin:0;
+padding:0;
+background:#000;
+opacity:.85;
+filter: alpha(opacity=85);
+-moz-opacity: 0.85;
+z-index:10001;
+}
+* html .modal-overlay
+{
+position: absolute;
+height: expression(document.body.scrollHeight > document.body.offsetHeight ? document.body.scrollHeight : document.body.offsetHeight + 'px');
+}
+.modal-window
+{
+position:fixed;
+top:50%;
+left:50%;
+margin:0;
+padding:0;
+z-index:10002;
+}
+* html .modal-window
+{
+position:absolute;
+}
+.close-window {
+position: absolute;
+top: -15px;
+right: -13px;
+width: 30px;
+height: 30px;
+background:transparent url('http://static.sfdict.com/en/i/dictionary/newserp/Sprite_Serp.png') -62px -109px;
+cursor: pointer;
+z-index: 1103;
+}
+</style>
+<div style="margin-left:200px; top:40px;">
+<p>
+<a href="#" onclick="openMyModal('http://dict.reference.com/'); return false;" class="icoMr"></a>
+</p>
+</div>
+<script type="text/javascript">
+$j(document).ready(function(){
+if ($j("#scpromo").length > 0){
+ghostwriter(
+"scpromo",
+{
+insertType: "append",
+script: { text: "document.write('<img src=\"\"/>');" }
+}
+);
+}
+});
+</script>
+<div id="neilsen" style="display:none"> </div>
+<script>
+$j(document).ready(function(){
+var url ="http://secure-us.imrworldwide.com/cgi-bin/m?ci=us-805928h&cg=0&cc=1&si="+escape(window.location.href)+"&rp="+escape(document.referrer)+"&ts=compact&rnd="+(new Date()).getTime();
+ghostwriter(
+"neilsen",
+{
+insertType: "append",
+script: { text:"document.write('<img src="+url+"/>')"}
+}
+);
+});
+</script>
+<script>
+$j(".pronset span").first().mousedown(function(){
+if(refreshAdsOnlyonce){
+setTimeout('clicksWithAdRefresh("audio")',20);
+}else{
+setTimeout('clicksWithoutAdRefresh("audio")',20);
+}
+});
+$j(".aud").mousedown(function(){
+if(refreshAdsOnlyonce){
+setTimeout('clicksWithAdRefresh("audio")',20);
+}else{
+setTimeout('clicksWithoutAdRefresh("audio")',20);
+}
+if(false){
+var audprompt = Cookie.getCookie("aud");
+if(audprompt == null){
+$j("#audprompt").css("display","inline-block");
+}
+}
+});
+function clicksWithAdRefresh(target){
+refreshDisplayAds();
+var url = '';
+if(refreshAdsOnlyonce){
+url = 'http://click.reference.com/track/clickInner?pageName=dic&target='+target+'&adRefresh=n&pageviewCount=1&site=dict&ldid=260:1&rnd='+(new Date()).getTime();
+}else{
+url = 'http://click.reference.com/track/clickInner?pageName=dic&target='+target+'&adRefresh=y&pageviewCount=1&site=dict&ldid=260:1&rnd='+(new Date()).getTime();
+}
+var img = new Image();
+img.src = url;
+}
+function clicksWithoutAdRefresh(target){
+var url = 'http://click.reference.com/track/clickInner?pageName=dic&target='+target+'&adRefresh=n&pageviewCount=1&site=dict&ldid=260:1&rnd='+(new Date()).getTime();
+var img = new Image();
+img.src = url;
+}
+$j(".more").click(function(){
+if(refreshAdsOnlyonce){
+clicksWithAdRefresh('expand');
+}else{
+clicksWithoutAdRefresh('expand');
+}
+});
+$j(".less").click(function(){
+if(refreshAdsOnlyonce){
+clicksWithAdRefresh('collapse');
+}else{
+clicksWithoutAdRefresh('collapse');
+}
+});
+$j(".sfav").click(function(){
+if(refreshAdsOnlyonce){
+clicksWithAdRefresh('favorite');
+}else{
+clicksWithoutAdRefresh('favorite');
+}
+});
+$j(".srec").click(function(){
+if(refreshAdsOnlyonce){
+clicksWithAdRefresh('recent');
+}else{
+clicksWithoutAdRefresh('recent');
+}
+});
+if($j(".prmore").length > 0){
+$j(".prmore").click(function(){
+if(refreshAdsOnlyonce){
+clicksWithAdRefresh('expand');
+}else{
+clicksWithoutAdRefresh('expand');
+}
+});
+}
+</script>
+<script type="text/javascript">_detabFirst=false;</script>
+<style type="text/css">
+#dict_header_content img[width="15"] {
+display:none;
+}
+#wdcb{height:25px;width:25px;right:25px !important;}
+#scpromo {
+top:10px;
+left:0px;
+}
+@media screen and (max-width: 1245px)
+{
+#showbuyads{
+display:none !important;
+}
+}
+.seasonlogo{
+background-position: -29px -150px;
+}
+</style>
+<script type="text/javascript">
+$j(document).ready(function(){
+if(daisyPageName == "dic-spell" && typeof(googletag)!="undefined" ){
+if($j("#ss_slf").find("#dcomad_mid_160x600").length ==0){
+$j('#ss_slf').append('<div id="dcomad_mid_160x600"><script type="text/javascript">googletag.cmd.push(function() { googletag.display("dcomad_mid_160x600"); });<\/script></div>');
+}
+}
+if(typeof(UserController)!="undefined"){
+if(UserController.isPremium() && UserController.isLoggedIn()){
+$j("#seasonHdr").css("background","none");
+}
+}
+if($j('#showbuyads').css('display')=='block'){
+$j('#showbuyads').css('display','inline-block');
+}
+});
+if(typeof(_adbackgroundImage)!= 'undefined' && _adbackgroundImage ==""){
+_adbackgroundImage=undefined;
+}
+if(window.location.href.indexOf("www.reference.com/motif") > -1 || window.location.href.indexOf("answers.reference.com") > -1) {
+_detabFirst=false;
+}
+if(typeof $j != 'undefined'){
+$j(document).ready(function(){
+try{
+setTimeout(ghostwriter.flushloadhandlers, 250);
+}catch(e){
+//do nothing
+}})
+}
+function updateRecentCookie(){
+if(Cookie.isEnabled() && window.location.host.indexOf('dictionary')!=-1) {
+var val=Cookie.getCookie("recsrch");
+var checker=Cookie.getCookie("chk_del");
+if(val){
+if(checker == null){
+Cookie.deleteCookie('recsrch','/','.reference.com');
+var exp = new Date();
+exp.setFullYear(exp.getFullYear());
+exp.setMonth(exp.getMonth());
+exp.setDate(exp.getDate()+1);
+exp.setHours(0);
+exp.setMinutes(0);
+var domain= ".reference.com"
+Cookie.setCookie("chk_del", "true", exp, "/", domain);
+}
+}
+}
+}
+updateRecentCookie();
+if(Cookie.isEnabled() && window.location.host.indexOf('thesaurus')!=-1) {
+var bshval=Cookie.getCookie("bsh");
+if(bshval!=''){
+Cookie.deleteCookie('bsh','/','');
+var exp = new Date();
+exp.setFullYear(exp.getFullYear());
+exp.setMonth("11");
+exp.setDate("31");
+exp.setHours(0);
+exp.setMinutes(0);
+var domain= ".thesaurus.com"
+Cookie.setCookie("bsh",bshval, exp, "/", domain);
+}
+}
+</script>
+<script type="text/javascript">
+$j('body').delegate('#dic_result','mousedown',function(){
+pk(this,{"io":"0","m":"1clk","lk":"nn1ov4"});
+});
+</script>
+<script type="text/javascript">
+</script>
+<style type="text/css">
+#wdcb{
+right: 214px !important;
+top: -19px;
+}
+#nfotr
+{
+padding-bottom: 29px;
+}
+</style>
+<script type="text/javascript">
+$j(document).ready(function(){
+if($j("#lr").length && $j("#de").length && $j(".lr_skyad").length)
+{
+var fromTop=$j(".lr_skyad").offset().top;
+var top= 720-fromTop;
+if(top >0)
+{
+$j(".lr_skyad").css({'top':top,'position' :'relative'});
+}
+if(top >0 && (($j("#nfotr").offset().top) < ($j(".lr_skyad").offset().top+$j(".lr_skyad").height())))
+{
+$j("#de").css('height',($j("#nfotr").offset().top +top+200));
+}
+}
+}
+);
+</script>
+<script type="text/javascript">
+(new Image()).src = "http://track.reference.com/webtrack.gif?st=dict&pn=dic&ab=260:1&ldid=0&qr=take&lk=2ksc1p|12,vfp1o9,jl79qz|2,1zv0ht|41,gr62hm|5,yikftd|7,k3p087,jwc8dj,5q219k,5k1a4a|7&ev=i&ak=1&rf="+encodeURIComponent(document.referrer)+"&cb="+Math.floor((Math.random()*899999999)+100000000);
+</script>
+<script type="text/javascript">
+if(UserController.isPremium()){
+$j('#scpromo').css('display','none');
+$j('#enterleave').css('display','none');
+$j('#seasoncompanion').css('display','none');
+}
+_favoriteQuery = (typeof(_favoriteQuery)!="undefined" && _favoriteQuery!="")?_favoriteQuery:queryURLEncoded;
+if(typeof(Base64) != 'undefined' && Cookie.isEnabled() && Cookie.getCookie("dc")){
+dcCookieClient = Base64.decode(Cookie.getCookie("dc"));
+dcFieldsClient = dcCookieClient.split(';');
+if(dcFieldsClient != null){
+appCoreUsername = dcFieldsClient[0];
+appCoreUserid = dcFieldsClient[6];
+fbUser = dcFieldsClient[7];
+}
+}
+var headerController = function() {
+function generateLoggedInNav() {
+var navigation ="";
+var appUrl= "app.dictionary.com";
+if(!UserController.isPremium()){
+navigation = '<span class="prmsblT"></span><a href="http://'+appUrl+'/users/settings">My Account </a>';
+}else{
+navigation = '<a href="http://'+appUrl+'/users/settings">My Account </a>';
+}
+if(!UserController.isPremium()) {
+navigation += '<a href="http://'+appUrl+'/favorites" style="padding-left:1px;" id="fvlp"><span class="favL"></span><span id="favLink1">' + UserController.getFavNumber() + '</span></a>';
+navigation += '<a href="http://'+appUrl+'/logout?logindest="'+enc(window.location)+' class="hdrlink" id="favLogout">Log Out </a>';
+navigation += '<a onmousedown="return pk(this,{lk:\'1fk8td\',io:\'0\',m:\'hrdupgrd\'})" href="http://'+appUrl+'/signup/premium?logindest="'+enc(window.location)+' class="hdrlink" id="upgd">Upgrade </a>';
+} else {
+navigation += '<a id="fvl" href="http://'+appUrl+'/favorites"><span class="favL"></span><span id="favLink1">' + UserController.getFavNumber() + '</span></a>';
+navigation += '<a id="favLogout" class="hdrlink" href="http://'+appUrl+'/logout?logindest='+enc(window.location)+'">Log Out </a>';
+$j("#wraplogoform").append("<div id=\"prem_symbol1T\"></div>");
+}
+return navigation;
+}
+return {
+regenerateNav : function() {
+return generateLoggedInNav();
+}
+}
+}();
+if(UserController.isLoggedIn()) {
+var header = document.getElementById('tpnvT');
+header.innerHTML = '';
+header.innerHTML = headerController.regenerateNav();
+$j.get('/fav-dyn',{ssouid:appCoreUserid,type:'totalwords',favmod:'on',rnd:Math.floor((Math.random()*899999999)+100000000)},function(data){
+if(data != null && data != ""){
+if(data.indexOf(queryURLEncoded)!=-1){
+$j('#nonfav').attr('id','fav');
+}
+}
+});
+$j(window).scroll(function(){
+$j('.sfav span').text('FAVORITES ' + UserController.getFavNumber() );
+});
+registerBottomFavAction();
+}
+else{
+if(!UserController.isLoggedIn()){
+var hdrTemplate ="";
+var appUrl= "app.dictionary.com";
+hdrTemplate += '<a id="loginHeaderLink" style="padding-right:0px;" rel="nofollow" href="http://'+appUrl+'/login/core?source=header_dict&logindest='+enc(window.location)+'">Log In </a>';
+hdrTemplate += '<span class="bar bar1" style="height: 13px;display: inline-block;position: relative;border-left: 1px solid white;left:1px;top:2px;"></span>';
+hdrTemplate += '<a id="regLink" rel="nofollow" href="http://'+appUrl+'/signup/core?source=header_dict&amp;logindest='+enc(window.location)+'"> Sign Up </a>';
+hdrTemplate += '<span class="bar bar2" style="height: 13px;display: inline-block;position: relative;border-left: 1px solid white;top:2px;"></span>';
+hdrTemplate += '<span class="prmsblT prmsblTn"></span>';
+hdrTemplate += '<a onmousedown="return pk(this,{io:0,m:\'hrdprem\',ec:1,lk:\'bz0r8y\'})" href="http://'+appUrl+'/signup/premium?logindest='+enc(window.location)+'">Premium</a>';
+var headerNav = document.getElementById('tpnvT');
+headerNav.innerHTML = '';
+headerNav.innerHTML = hdrTemplate;
+}
+var favfooter =$j('#bfpu ul');
+if(!$j("#bfpu>ul>li>.flog")){
+favfooter.append('<li style="line-height:14px;">Please <a class=\'flog\'>Login</a> or <a class=\'freg\'>Sign Up</a> to use the Favorites feature</li>');
+}
+registerBottomFavActionForSuperSession();
+$j("#bfpu>ul>li>.flog").attr("href","http://app.dictionary.com/login/core?source=footer&fnCallback=loginuser&callbackAction=showFavWords&domaindest=reference.com"+"&logindest="+ enc(window.location));
+$j("#brpu>ul>li>.flog").attr("href","http://app.dictionary.com/login/core?source=footer&fnCallback=loginuser&callbackAction=showRecent&domaindest=reference.com"+"&logindest="+ enc(window.location));
+$j("#bfpu>ul>li>.freg").attr("href","http://app.dictionary.com/signup/core?source=footer&fnCallback=loginuser&callbackAction=showFavWords&domaindest=reference.com"+"&logindest="+ enc(window.location));
+$j("#brpu>ul>li>.freg").attr("href","http://app.dictionary.com/signup/core?source=footer&fnCallback=loginuser&callbackAction=showRecent&domaindest=reference.com"+"&logindest="+ enc(window.location));
+}
+$j('#fav').empty();
+$j('#nonfav').empty();
+$j('body').delegate('#nonfav','mousedown',function(){
+if(!UserController.isLoggedIn()){
+redirectToAppcoreForSuperSession();
+}else{
+addFavWord(_favoriteQuery);
+}
+});
+if(!showads){
+(function(){
+jQuery("div[id^=Dash]").css("display","none");
+})();
+}
+</script>
+<script type="text/javascript">
+$j(document).ready(function(){
+if(navigator.userAgent.indexOf("iPad")!=-1){
+var url = "http://app.reference.com/api/dash/get/ipadInterstitial/dict_serp_ipadInterstitial?"+ new Date().getTime();
+var json=null;
+var invocation = new XMLHttpRequest();
+invocation.open('GET', url);
+invocation.withCredentials = "true";
+invocation.onload = handler;
+invocation.send();
+function handler(evtXHR)
+{
+if (invocation.readyState == 4)
+{
+if (invocation.status == 200)
+{
+json = JSON.parse(invocation.responseText);
+if(json!=null){
+var ipadbackgroundImage=json.backgroundImage;
+var closeButtonImage=json.closeButtonImage;
+var callToActionButtonImage=json.callToActionButtonImage;
+var bottomOverlayImage=json.bottomOverlayImage;
+var titleText=json.titleText;
+var continueText=json.continueText;
+var alreadyHaveAppText=json.alreadyHaveAppText;
+var titleTextColor=json.titleTextColor;
+var continueTextColor=json.continueTextColor;
+var alreadyHaveAppTextColor=json.alreadyHaveAppTextColor;
+var closeButtonClickAction=json.closeButtonClickAction;
+var callToActionButtonClickAction=json.callToActionButtonClickAction;
+var continueClickAction=json.continueClickAction;
+var alreadyHaveAppClickAction=json.alreadyHaveAppClickAction;
+var interimpressionLinkId=json.impressionLinkId;
+var closeButtonLinkId=json.closeButtonLinkId;
+var callToActionButtonLinkId=json.callToActionButtonLinkId;
+var continueLinkId=json.continueLinkId;
+var alreadyHaveAppLinkId=json.alreadyHaveAppLinkId;
+closeiPadOverlay =function(){
+$j('#ipadoverlay').remove();
+$j("#ipadoverlay").css("display","none");
+};
+logtracking =function(feature){
+if(feature =="getapp"){
+closeiPadOverlay();
+window.open("http://click.reference.com/click/"+callToActionButtonLinkId+"?clksite=dict&clkpage=dic&clkld=260:1&clkorgn=0&clkord=0&clkmod=downld&clkitem=&clkdest="+encodeURIComponent(callToActionButtonClickAction));
+}else if(feature =="continue"){
+closeiPadOverlay();
+spk(this,{lk:continueLinkId,en:'skip',io:'0',b:'skip',tp:'skip',m:'skip',pt:'skip+continue+ipad'});
+}else if(feature =="haveapp"){
+closeiPadOverlay();
+spk(this,{lk:alreadyHaveAppLinkId,en:'hvapp',io:'0',b:'hvapp',tp:'hvapp',m:'hvapp',pt:'already+have+app'});
+}else if(feature =="close"){
+spk(this,{lk:closeButtonLinkId,en:'skip',io:'0',b:'skip',tp:'skip',m:'skip',pt:'skip+continue+ipad'});
+closeiPadOverlay();
+}
+};
+var docHeight = $j(document).height();
+$j("body").append('<div id="ipadoverlay"><meta name="viewport" content="width=device-width,user-scalable=no inline-scale=1.0,minimum-scale=1.0,maximum-scale=1.0" ><div id=\"close\" style=\"float:right\"><a href=\"javascript:void(0);\" onmousedown=\"logtracking(\'close\')\" style=\"text-decoration:none;cursor:pointer\"><img src=\"'+closeButtonImage+'\" style=\"border:medium none\" /></a></div><div id=\"ipadbanner\">'+titleText+'</div><div class=\"ipadoverlay\"> <a href=\"javascript:void(0);\" onmousedown=\"logtracking(\'getapp\')\" class=\"ipadbutton\">Get Our App</a><div class=\"ipadinnerFloat\"> <a href=\"javascript:void(0);\" onmousedown=\"logtracking(\'continue\')\" class=\"ipadskip\">'+continueText+'</a><a href=\"javascript:void(0);\" onmousedown=\"logtracking(\'haveapp\')\" class=\"ipadhave\">'+alreadyHaveAppText+'</a></div></div>');
+$j("#ipadoverlay").css('background','url("'+ipadbackgroundImage+'") top center');
+$j(".ipadoverlay").css('background','url("'+bottomOverlayImage+'") transparent');
+$j(".ipadbutton").css('background','url("'+callToActionButtonImage+'") transparent');
+$j("#ipadoverlay")
+.height(docHeight)
+.css({
+'opacity' : 100,
+'position': 'fixed',
+'top': 0,
+'left': 0,
+'background-color': 'black',
+'background': ipadbackgroundImage,
+'width': '100%',
+'z-index': 10000
+});
+(new Image()).src = "http://track.reference.com/webtrack.gif?st=dict&pn=dic&ab=&ldid=0&qr=take&ev=i&lk="+interimpressionLinkId+"&cb="+Math.floor((Math.random()*899999999)+100000000)+"&rf="+encodeURIComponent(document.referrer);
+}
+}
+}
+}
+}
+});
+</script>
+</body>
+</html>
