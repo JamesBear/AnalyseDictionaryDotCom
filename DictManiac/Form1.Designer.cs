@@ -79,11 +79,11 @@
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(221, 348);
+            this.button1.Location = new System.Drawing.Point(193, 348);
             this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.Size = new System.Drawing.Size(103, 23);
             this.button1.TabIndex = 3;
-            this.button1.Text = "下载爱词霸";
+            this.button1.Text = "Download Iciba";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
@@ -91,9 +91,9 @@
             // 
             this.button3.Location = new System.Drawing.Point(319, 348);
             this.button3.Name = "button3";
-            this.button3.Size = new System.Drawing.Size(75, 23);
+            this.button3.Size = new System.Drawing.Size(100, 23);
             this.button3.TabIndex = 3;
-            this.button3.Text = "下载百度";
+            this.button3.Text = "Download Baidu";
             this.button3.UseVisualStyleBackColor = true;
             this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
@@ -103,7 +103,7 @@
             this.button4.Name = "button4";
             this.button4.Size = new System.Drawing.Size(149, 23);
             this.button4.TabIndex = 3;
-            this.button4.Text = "下载reference.com";
+            this.button4.Text = "Download reference.com";
             this.button4.UseVisualStyleBackColor = true;
             this.button4.Click += new System.EventHandler(this.button4_Click);
             // 
@@ -113,7 +113,7 @@
             this.buttonAnalyse.Name = "buttonAnalyse";
             this.buttonAnalyse.Size = new System.Drawing.Size(141, 23);
             this.buttonAnalyse.TabIndex = 4;
-            this.buttonAnalyse.Text = "分析reference.com";
+            this.buttonAnalyse.Text = "Analyse reference.com";
             this.buttonAnalyse.UseVisualStyleBackColor = true;
             this.buttonAnalyse.Click += new System.EventHandler(this.buttonAnalyse_Click);
             // 
