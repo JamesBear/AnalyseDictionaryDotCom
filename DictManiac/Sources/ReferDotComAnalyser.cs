@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HtmlAgilityPack;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
+using System.Text.RegularExpressions;
 
 namespace DictManiac.Sources
 {
@@ -14,7 +16,7 @@ namespace DictManiac.Sources
         public string definition;
     }
 
-    class HtmlNode
+    class HtmlNodeLocal
     {
         // the whole file
         public string content;
@@ -163,7 +165,7 @@ namespace DictManiac.Sources
             return defLineEndIndex;
         }
 
-        public static DictHtmlAnalyseResult Analyse(string htmlContent)
+        public static DictHtmlAnalyseResult AnalyseOld(string htmlContent)
         {
             DictHtmlAnalyseResult result = new DictHtmlAnalyseResult();
 
@@ -174,6 +176,111 @@ namespace DictManiac.Sources
 
             result.definition = sb.ToString();
 
+            return result;
+        }
+
+        public static DictHtmlAnalyseResult Analyse2(string htmlContent)
+        {
+            DictHtmlAnalyseResult result = new DictHtmlAnalyseResult();
+
+            HtmlDocument doc = new HtmlDocument();
+            StringBuilder sb = new StringBuilder();
+            doc.LoadHtml(htmlContent);
+            var root = doc.DocumentNode;
+            HtmlNode node;
+            node = root.SelectSingleNode("//*[@id=\"query_h1\"]");
+            sb.Append(node.InnerText).Append("\r\n");
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[1]/h2");
+            sb.Append(node.InnerText).Append("\r\n");
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[1]/span/span[3]/span[2]");
+            sb.Append(node.InnerText).Append("\r\n");
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/span[1]");
+            sb.Append(node.InnerText).Append("\r\n");
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[1]");
+            sb.Append(node.InnerText).Append("\r\n");
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[5]");
+            sb.Append(node.InnerText).Append("\r\n");
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[2]/div[1]");
+            sb.Append(node.InnerText).Append("\r\n");
+
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[6]");
+            //sb.Append(node.InnerText).Append("\r\n");
+            
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[6]/div[1]/span");
+            sb.Append(node.InnerText).Append("\r\n");
+            node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[6]/div[1]/div");
+            sb.Append(node.InnerText).Append("\r\n");
+
+            result.definition = sb.ToString();
+            return result;
+        }
+
+        public static DictHtmlAnalyseResult Analyse3(string htmlContent)
+        {
+            DictHtmlAnalyseResult result = new DictHtmlAnalyseResult();
+
+            HtmlDocument doc = new HtmlDocument();
+            StringBuilder sb = new StringBuilder();
+            doc.LoadHtml(htmlContent);
+            var root = doc.DocumentNode;
+            HtmlNode node;
+            //node = root.SelectSingleNode("//*[@id=\"query_h1\"]");
+            //sb.Append(node.InnerText).Append("\r\n");
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/h2"); // take
+            //sb.Append(node.InnerText).Append("\r\n");
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/span[3]/span[2]"); // teyk
+            //sb.Append(node.InnerText).Append("\r\n");
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/span[1]");    // verb
+            //sb.Append(node.InnerText).Append("\r\n");
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]");
+            //sb.Append(node.InnerText).Append("\r\n");
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[5]");
+            //sb.Append(node.InnerText).Append("\r\n");
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]/div[1]/div/div[1]/div[2]/div[2]/div[1]");
+            //sb.Append(node.InnerText).Append("\r\n");
+            ////node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]/div[1]/div/div/div[2]/div[1]/div[5]");
+            ////node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[4]/div[1]/div[2]/div/div/div[2]/div[1]/div[1]");
+
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[6]");
+            ////sb.Append(node.InnerText).Append("\r\n");
+            
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[6]/div[1]/span");
+            //sb.Append(node.InnerText).Append("\r\n");
+            //node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div/div/div/div[1]/div[2]/div[1]/div[6]/div[1]/div");
+            //sb.Append(node.InnerText).Append("\r\n");
+
+            sb.Clear();
+            sb.Append(root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]").InnerText);
+            result.definition = InsertLineBeforeNumber(sb.ToString());
+            return result;
+        }
+
+        public static DictHtmlAnalyseResult Analyse(string htmlContent)
+        {
+            DictHtmlAnalyseResult result = new DictHtmlAnalyseResult();
+
+            HtmlDocument doc = new HtmlDocument();
+            StringBuilder sb = new StringBuilder();
+            doc.LoadHtml(htmlContent);
+            var root = doc.DocumentNode;
+            var node = root.SelectSingleNode("//*[@id=\"rpane\"]/div[3]/div[1]"); 
+            
+            sb.Append(node.InnerText);
+
+            result.definition = InsertLineBeforeNumber(sb.ToString());
+            return result;
+        }
+
+        private static string InsertLineBeforeNumber(string str)
+        {
+            //string pattern = @"(\p{Sc}\s?)?(\d+\.?((?<=\.)\d+)?)(?(1)|\s?\p{Sc})?";
+            //string input = "$17.43  €2 16.33  £0.98  0.43   £43   12€  17";
+            string pattern = @"(((\d{1,3})(,\d{3})*)|(\d+))(.\d+)?\.";
+            string replacement = "\r\n$1.";
+            Regex rgx = new Regex(pattern);
+            string result = rgx.Replace(str, replacement);
+            rgx = new Regex(@"<!\-\-.*\-\->");
+            result = rgx.Replace(result, "");
             return result;
         }
     }

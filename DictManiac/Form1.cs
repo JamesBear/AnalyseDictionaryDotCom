@@ -118,6 +118,16 @@ namespace DictManiac
             {
                 MyLogger.Attach("Fail to read file ReferHtmls\\take.html");
             }
+
+            if (FileUtil.ReadFile("ReferHtmls\\abandon.html", out htmlContent))
+            {
+                var result = ReferDotComAnalyser.Analyse(htmlContent);
+                MyLogger.Attach(result.definition);
+            }
+            else
+            {
+                MyLogger.Attach("Fail to read file ReferHtmls\\take.html");
+            }
         }
     }
 }
